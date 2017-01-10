@@ -10,7 +10,6 @@
 #include <d3dcompiler.h>
 #include <directxmath.h>
 #include "../FBX Exporter/FBX Exporter.h"
-#include "GetPosition.h"
 #include <vector>
 #include "vec3.h"
 
@@ -279,7 +278,7 @@ void InitGraphics()
 	ZeroMemory(&BufferDes, sizeof(BufferDes));
 
 	BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-	BufferDes.ByteWidth = sizeof(VERTEX) * 3;             // size is the VERTEX struct * 3
+	BufferDes.ByteWidth = sizeof(VERTEX) * ARRAYSIZE(Triangle);             // size is the VERTEX struct * 3
 	BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
 	BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
 

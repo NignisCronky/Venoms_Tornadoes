@@ -163,11 +163,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="GetPosition.cxx" />
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="GetPosition.h" />
     <ClInclude Include="Globals.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="vec3.h" />
