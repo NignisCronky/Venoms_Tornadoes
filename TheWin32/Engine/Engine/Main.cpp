@@ -102,8 +102,11 @@ void SetUpMatrices()
 	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, perspectiveMatrix);
 
 	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
+	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+
+	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
 	DirectX::XMStoreFloat4x4(&m_camera, perspectiveMatrix);
-	XMStoreFloat4x4(&_ViewMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_camera))));
+	
 
 	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
 
@@ -151,7 +154,7 @@ void SetElement(int index)
 void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float delta_time = 1.0f)
 {
 	//W
-	if (wpar == 0x58)
+	if (wpar == 0x57)
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
@@ -201,8 +204,8 @@ void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float de
 	//Right Mouse Button
 	if (wpar == VK_RIGHT)
 	{
-		float dx = currPos->x - prevPos->x;
-		float dy = currPos->y - prevPos->y;
+		float dx = (float)currPos->x - (float)prevPos->x;
+		float dy = (float)currPos->y - (float)prevPos->y;
 
 		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
@@ -244,9 +247,25 @@ void CleanD3D(void)
 	RasterState->Release();
 
 }
+D3D11_BUFFER_DESC ConstantBuffer;
+D3D11_MAPPED_SUBRESOURCE ConsREsorce;
+float carry = 0.001f;
 
 void RenderFrame(void)
 {
+	Pro_View_World MAtrices;
+	MAtrices.World = _WorldMatrix;
+	MAtrices.Pro = _ProjectionMatrix;
+	MAtrices.View = m_camera;
+	// function right here todo: fix tis jordan
+
+	//MAtrices.View._43 += carry;
+	carry += 0.001f;
+	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+
+	/////////////////////
 	// clear the back buffer to a deep blue
 	FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
 	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
@@ -268,7 +287,7 @@ void RenderFrame(void)
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
 	swapchain->Present(0, 0);
-
+	//////////////////////////////////////
 }
 
 
@@ -315,9 +334,9 @@ void InitGraphics()
 	MAtrices.Pro = _ProjectionMatrix;
 	MAtrices.View = _ViewMatrix;
 
-	D3D11_BUFFER_DESC ConstantBuffer;
+	//////////////////////////////////////////////
 	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
-
+	
 	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
 	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
 	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
@@ -325,10 +344,12 @@ void InitGraphics()
 
 	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
 
-	D3D11_MAPPED_SUBRESOURCE ConsREsorce;
 	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
 	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
 	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+	//////////////////////////////////////////////
+
+
 
 
 	D3D11_RASTERIZER_DESC RasDesc;
