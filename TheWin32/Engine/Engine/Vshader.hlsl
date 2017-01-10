@@ -1,3 +1,4 @@
+#pragma pack_matrix( row_major )
 struct INPUT_VERTEX
 {
 	float3 coordinate : POSITION;
@@ -12,9 +13,9 @@ struct OUTPUT_VERTEX
 
 cbuffer matrices : register(b0)
 {
+	float4x4 world;
 	float4x4 projection;
 	float4x4 view;
-	float4x4 world;
 };
 
 OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)

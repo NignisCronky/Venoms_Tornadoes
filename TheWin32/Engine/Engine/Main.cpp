@@ -25,9 +25,10 @@ ID3D11PixelShader *_PixelShader;				// the pointer to the Pixel Shader
 ID3D11Buffer *_Buffer;							// the pointer to the vertex buffer
 ID3D11Buffer *_ConstantBuffer;					// the pointer to the constant buffer
 ID3D11InputLayout *_Layout;						// the pointer to the input layout
+ID3D11RasterizerState *RasterState;				// the pointer to the raster state
 struct VERTEX {									// vertex structure
 	FLOAT X, Y, Z;
-	float Color[4];
+	DirectX::XMFLOAT4 Color;
 };
 DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
 DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
@@ -37,7 +38,6 @@ struct Pro_View_World
 	XMFLOAT4X4 World;
 	XMFLOAT4X4 Pro;
 	XMFLOAT4X4 View;
-
 };
 
 #pragma endregion
@@ -55,6 +55,7 @@ void SetUpMatrices()
 	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, Temp);
 	Temp = DirectX::XMMatrixTranslation(0, 0, -2);
 	DirectX::XMStoreFloat4x4(&_ViewMatrix, Temp);
+	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
 
 }
 
@@ -87,7 +88,7 @@ void SetElement(int index)
 			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		};
 
-		Device->CreateInputLayout(INPUT_DESC, 2, _VertexShader, sizeof(_VertexShader), &_Layout);
+		Device->CreateInputLayout(INPUT_DESC, 2, Vshader, sizeof(Vshader), &_Layout);
 		Devicecon->IASetInputLayout(_Layout);
 	}
 	break;
@@ -111,6 +112,7 @@ void CleanD3D(void)
 
 	_VertexShader->Release();
 	_PixelShader->Release();
+	RasterState->Release();
 
 }
 
@@ -121,29 +123,13 @@ void RenderFrame(void)
 	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
 	///////////////////////////////////////////////////////////////////
 
-
-
-
-
-
+	Devicecon->RSSetState(RasterState);
 	UINT stride = sizeof(VERTEX);
 	UINT offset = 0;
 	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
 	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
-
-
-
-
 	Devicecon->Draw(3, 0);
-
-
-
-
-
-
-
-
 
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
@@ -161,58 +147,63 @@ void InitPipeline()
 
 	SetElement(0);
 	SetUpMatrices();
+
+	//d3d11_RASTERSTATE_DESC rasterdesc
+	D3D11_RASTERIZER_DESC RasDesc;
+	ZeroMemory(&RasDesc, sizeof(RasDesc));
+	RasDesc.CullMode = D3D11_CULL_NONE;
+	RasDesc.FillMode = D3D11_FILL_SOLID;
+	Device->CreateRasterizerState(&RasDesc,&RasterState);
+
 }
 
 void InitGraphics()
 {
 	VERTEX Triangle[] =
 	{
-		{ 0.0f, 0.5f, 0.0f, (1.0f, 0.0f, 0.0f, 1.0f) },
-		{ 0.45f, -0.5, 0.0f, (0.0f, 1.0f, 0.0f, 1.0f) },
-		{ -0.45f, -0.5f, 0.0f, (0.0f, 0.0f, 1.0f, 1.0f) }
+		{ 0.0f, 0.0f, 0.5f,	{1.0f, 0.0f, 0.0f, 1.0f} },
+		{ 10.0f, 0.0f, 0.5f, {0.0f, 1.0f, 0.0f, 1.0f} },
+		{ 5.0f, 10.0f, 0.5f, {0.0f, 0.0f, 1.0f, 1.0f} }
 	};
 
 
-	//Buffer
-	D3D11_BUFFER_DESC BufferDes;
-	ZeroMemory(&BufferDes, sizeof(BufferDes));
+//Buffer
+D3D11_BUFFER_DESC BufferDes;
+ZeroMemory(&BufferDes, sizeof(BufferDes)); 
 
-	BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-	BufferDes.ByteWidth = sizeof(VERTEX) * 3;             // size is the VERTEX struct * 3
-	BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
-	BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+BufferDes.ByteWidth = sizeof(VERTEX) * 3;             // size is the VERTEX struct * 3
+BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
 
-	Device->CreateBuffer(&BufferDes, NULL, &_Buffer);       // create the buffer
+D3D11_SUBRESOURCE_DATA data;
+data.pSysMem = &Triangle[0];
+Device->CreateBuffer(&BufferDes, &data, &_Buffer);       // create the buffer
 
-	D3D11_MAPPED_SUBRESOURCE Resourse;
-	Devicecon->Map(_Buffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &Resourse);    // map the buffer
-	memcpy(Resourse.pData, Triangle, sizeof(Triangle));                 // copy the data
-	Devicecon->Unmap(_Buffer, NULL);                                      // unmap the buffer
+//D3D11_MAPPED_SUBRESOURCE Resourse;
+//Devicecon->Map(_Buffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &Resourse);    // map the buffer
+//memcpy(Resourse.pData, Triangle, sizeof(Triangle));                 // copy the data
+//Devicecon->Unmap(_Buffer, NULL);                                      // unmap the buffer
 
+Pro_View_World MAtrices;
+MAtrices.World = _WorldMatrix;
+MAtrices.Pro = _ProjectionMatrix;
+MAtrices.View = _ViewMatrix;
 
+D3D11_BUFFER_DESC ConstantBuffer;
+ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
 
+ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
+ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
+ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
 
+Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
 
-	Pro_View_World MAtrices[]
-	{
-	_ProjectionMatrix,
-	_ViewMatrix,
-	_WorldMatrix
-	};
-
-	D3D11_BUFFER_DESC ConstantBuffer;
-	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
-
-	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
-	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
-	ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-
-	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
-	D3D11_MAPPED_SUBRESOURCE ConsREsorce;
-	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
-	memcpy(ConsREsorce.pData, MAtrices, sizeof(MAtrices));                 // copy the data
-	Devicecon->Unmap(_Buffer, NULL);                                      // unmap the buffer
+D3D11_MAPPED_SUBRESOURCE ConsREsorce;
+Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
 
 
 
@@ -221,6 +212,19 @@ void InitGraphics()
 
 void InitD3D(HWND hWnd)
 {
+	
+
+
+
+
+
+
+
+
+
+
+
+
 	// create a struct to hold information about the swap chain
 	DXGI_SWAP_CHAIN_DESC scd;
 
@@ -273,6 +277,8 @@ void InitD3D(HWND hWnd)
 
 	InitPipeline();
 	InitGraphics();
+	////////////////
+	Devicecon->RSSetState(RasterState);
 }
 
 #pragma endregion
@@ -308,6 +314,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				//game code goes here
 			}
+
 			RenderFrame();
 		}
 		CleanD3D();
