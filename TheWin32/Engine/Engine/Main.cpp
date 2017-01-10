@@ -31,42 +31,16 @@ ID3D11Buffer *_ConstantBuffer;					// the pointer to the constant buffer
 ID3D11Buffer *_IndexBuffer;						// the pointer to the index buffer
 ID3D11InputLayout *_Layout;						// the pointer to the input layout
 ID3D11RasterizerState *RasterState;				// the pointer to the raster state
+
+//Camera Shit
+//Matrix data member for the camera
+XMFLOAT4X4 m_camera;
+LPPOINT currPos;
+LPPOINT prevPos;
+
 struct VERTEX {									// vertex structure
 	FLOAT X, Y, Z;
 	DirectX::XMFLOAT4 Color;
-
-	/*VERTEX()
-	{
-		X = 0.0f;
-		Y = 0.0f;
-		Z = 0.0f;
-	}
-	VERTEX(float x, float y, float z)
-	{
-		X = x;
-		Y = y;
-		Z = z;
-	}
-	VERTEX(float x, float y, float z, float color[4])
-	{
-		X = x;
-		Y = y;
-		Z = z;
-		Color.x = color[0];
-		Color.y = color[1];
-		Color.z = color[2];
-		Color.w = color[3];
-	}
-	VERTEX(float x, float y, float z, float color0, float color1, float color2, float color3)
-	{
-		X = x;
-		Y = y;
-		Z = z;
-		Color.x = color0;
-		Color.y = color1;
-		Color.z = color2;
-		Color.w = color3;
-	}*/
 };
 
 struct Vec4
@@ -88,32 +62,6 @@ struct Vec4
 	}
 };
 
-//struct MyMesh
-//{
-//	Vec4 position;
-//	Vec4 normals;
-//	vec3f uv;
-//};
-
-struct FullVert
-{
-	vec3f p;
-	vec3f n;
-	vec3f t;
-	vec3f uv;
-
-	FullVert(float px = 0.0f, float py = 0.0f, float pz = 0.0f,
-		float nx = 0.0f, float ny = 0.0f, float nz = 0.0f,
-		float tx = 0.0f, float ty = 0.0f, float tz = 0.0f,
-		float uvx = 0.0f, float uvy = 0.0f, float uvz = 0.0f)
-	{
-		p = vec3f(px, py, pz);
-		n = vec3f(nx, ny, nz);
-		t = vec3f(tx, ty, tz);
-		uv = vec3f(uvx, uvy, uvz);
-	}
-};
-
 DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
 DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
 DirectX::XMFLOAT4X4 _WorldMatrix;				//world matrix
@@ -128,11 +76,6 @@ enum ShadingMode
 {
 	SHADING_MODE_WIREFRAME,
 	SHADING_MODE_SHADED,
-};
-
-struct MeshData {
-	std::vector<FullVert> Vertices;
-	std::vector<int> Indices;
 };
 
 const char* filename = "../Original Assets/AnimatedBox/Box_Idle.fbx";
@@ -155,12 +98,12 @@ void SetUpMatrices()
 	{
 		fovAngleY *= 2.0f;
 	}
-	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f );
+	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f);
 	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, perspectiveMatrix);
 
-	
 	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
-	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+	DirectX::XMStoreFloat4x4(&m_camera, perspectiveMatrix);
+	XMStoreFloat4x4(&_ViewMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_camera))));
 
 	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
 
@@ -205,6 +148,84 @@ void SetElement(int index)
 	}
 }
 
+void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float delta_time = 1.0f)
+{
+	//W
+	if (wpar == 0x58)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//S
+	if (wpar == 0x53)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, -moveSpd * delta_time);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//A
+	if (wpar == 0x41)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(-moveSpd * delta_time, 0.0f, 0.0f);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//D
+	if (wpar == 0x44)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(moveSpd * delta_time, 0.0f, 0.0f);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//X
+	if (wpar == 0x58)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, -moveSpd * delta_time, 0.0f);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//Space
+	if (wpar == VK_SPACE)
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, moveSpd * delta_time, 0.0f);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//Right Mouse Button
+	if (wpar == VK_RIGHT)
+	{
+		float dx = currPos->x - prevPos->x;
+		float dy = currPos->y - prevPos->y;
+
+		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
+
+		m_camera._41 = 0;
+		m_camera._42 = 0;
+		m_camera._43 = 0;
+
+		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
+		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
+
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		temp_camera = XMMatrixMultiply(rotX, temp_camera);
+		temp_camera = XMMatrixMultiply(temp_camera, rotY);
+
+		XMStoreFloat4x4(&m_camera, temp_camera);
+
+		m_camera._41 = pos.x;
+		m_camera._42 = pos.y;
+		m_camera._43 = pos.z;
+	}
+	prevPos = currPos;
+}
+
 #pragma endregion
 
 #pragma region DirectX_Init
@@ -231,6 +252,10 @@ void RenderFrame(void)
 	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
 	///////////////////////////////////////////////////////////////////
 
+	// Prepare the constant buffer to send it to the graphics device.
+	//Devicecon->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0, 0);
+	///////////////////////////////////////////////////////////////////
+
 	Devicecon->IASetIndexBuffer(_IndexBuffer, DXGI_FORMAT_R32G32B32_UINT, 0);
 	Devicecon->RSSetState(RasterState);
 	UINT stride = sizeof(VERTEX);
@@ -238,7 +263,7 @@ void RenderFrame(void)
 	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
 	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
-	Devicecon->DrawIndexed(6,0 ,0 );
+	Devicecon->DrawIndexed(6, 0, 0);
 
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
@@ -329,10 +354,10 @@ void InitGraphics()
 	Devicecon->Map(_IndexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &IndexResource);
 	memcpy(IndexResource.pData, &indexbuffer, sizeof(indexbuffer));
 	Devicecon->Unmap(_IndexBuffer, NULL);
-	
+
 #pragma endregion
 
-	                         
+
 }
 
 void InitD3D(HWND hWnd)
@@ -418,10 +443,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		INIT(hWnd);
 		///////////////
 		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
-		MSG msg = { 0 }; 
+		MSG msg = { 0 };
 		std::vector<MyMesh> mesh = LoadScene(filename);
 		D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{ D3D11_FILL_MODE::D3D11_FILL_SOLID };
 		Device->CreateRasterizerState(wireFrameDesc, rasState);
+		GetCursorPos(prevPos);
+		GetCursorPos(currPos);
 		while (TRUE)
 		{
 			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -460,6 +487,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				}
 			}
 
+			GetCursorPos(currPos);
 			RenderFrame();
 		}
 		CleanD3D();
@@ -479,8 +507,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		PostQuitMessage(0);
 		return 0;
 	}
-	break;
-
+	case WM_CHAR:
+	case WM_KEYDOWN:
+	{
+		UpdateCamera(wParam, 0.001f, 0.001f);
+		break;
+	}
 	}
 
 	// Handle any messages the switch statement didn't
