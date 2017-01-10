@@ -35,8 +35,8 @@ ID3D11RasterizerState *RasterState;				// the pointer to the raster state
 //Camera Shit
 //Matrix data member for the camera
 XMFLOAT4X4 m_camera;
-LPPOINT currPos;
-LPPOINT prevPos;
+LPPOINT currPos = nullptr;
+LPPOINT prevPos = nullptr;
 
 struct VERTEX {									// vertex structure
 	FLOAT X, Y, Z;
@@ -107,6 +107,8 @@ void SetUpMatrices()
 
 	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
 
+	currPos = new POINT;
+	prevPos = new POINT;
 }
 
 void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
@@ -151,7 +153,7 @@ void SetElement(int index)
 void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float delta_time = 1.0f)
 {
 	//W
-	if (wpar == 0x58)
+	if (wpar == 0x57)
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
@@ -191,38 +193,39 @@ void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float de
 		XMStoreFloat4x4(&m_camera, result);
 	}
 	//Space
-	if (wpar == VK_SPACE)
+	if (wpar == 0x20)
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, moveSpd * delta_time, 0.0f);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
 		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
 		XMStoreFloat4x4(&m_camera, result);
 	}
-	//Right Mouse Button
-	if (wpar == VK_RIGHT)
-	{
-		float dx = currPos->x - prevPos->x;
-		float dy = currPos->y - prevPos->y;
+	if (currPos)
+		//Right Mouse Button
+		if (wpar == 0x02 && prevPos)
+		{
+			float dx = currPos->x - prevPos->x;
+			float dy = currPos->y - prevPos->y;
 
-		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
+			DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
-		m_camera._41 = 0;
-		m_camera._42 = 0;
-		m_camera._43 = 0;
+			m_camera._41 = 0;
+			m_camera._42 = 0;
+			m_camera._43 = 0;
 
-		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
-		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
+			XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
+			XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
 
-		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-		temp_camera = XMMatrixMultiply(rotX, temp_camera);
-		temp_camera = XMMatrixMultiply(temp_camera, rotY);
+			XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+			temp_camera = XMMatrixMultiply(rotX, temp_camera);
+			temp_camera = XMMatrixMultiply(temp_camera, rotY);
 
-		XMStoreFloat4x4(&m_camera, temp_camera);
+			XMStoreFloat4x4(&m_camera, temp_camera);
 
-		m_camera._41 = pos.x;
-		m_camera._42 = pos.y;
-		m_camera._43 = pos.z;
-	}
+			m_camera._41 = pos.x;
+			m_camera._42 = pos.y;
+			m_camera._43 = pos.z;
+		}
 	prevPos = currPos;
 }
 
@@ -268,7 +271,6 @@ void RenderFrame(void)
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
 	swapchain->Present(0, 0);
-
 }
 
 
@@ -447,8 +449,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		std::vector<MyMesh> mesh = LoadScene(filename);
 		D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{ D3D11_FILL_MODE::D3D11_FILL_SOLID };
 		Device->CreateRasterizerState(wireFrameDesc, rasState);
-		GetCursorPos(prevPos);
-		GetCursorPos(currPos);
 		while (TRUE)
 		{
 			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -507,6 +507,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		PostQuitMessage(0);
 		return 0;
 	}
+	case WM_RBUTTONDOWN:
 	case WM_CHAR:
 	case WM_KEYDOWN:
 	{
