@@ -1,6 +1,7 @@
+#pragma once
 // include the basic windows header file
 #include <Windows.h>
-#include"Globals.h"
+#include "Globals.h"
 #include <d3d11.h> 
 #include <D3DX11.h>
 #include "Vshader.csh"
@@ -8,6 +9,10 @@
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
 #include <directxmath.h>
+#include "../FBX Exporter/FBX Exporter.h"
+#include "GetPosition.h"
+#include <vector>
+#include "vec3.h"
 
 #include <directxcolors.h>
 #pragma comment (lib, "d3d11.lib")
@@ -15,6 +20,7 @@ using DirectX::XMMATRIX;
 using DirectX::XMFLOAT4X4;
 
 #pragma region Globals
+#define PI 3.141592653f
 
 IDXGISwapChain *swapchain;						// the pointer to the swap chain
 ID3D11Device *Device;							// the pointer to the Device
@@ -28,7 +34,86 @@ ID3D11InputLayout *_Layout;						// the pointer to the input layout
 struct VERTEX {									// vertex structure
 	FLOAT X, Y, Z;
 	float Color[4];
+
+	VERTEX()
+	{
+		X = 0.0f;
+		Y = 0.0f;
+		Z = 0.0f;
+	}
+	VERTEX(float x, float y, float z)
+	{
+		X = x;
+		Y = y;
+		Z = z;
+	}
+	VERTEX(float x, float y, float z, float color[4])
+	{
+		X = x;
+		Y = y;
+		Z = z;
+		Color[0] = color[0];
+		Color[1] = color[1];
+		Color[2] = color[2];
+		Color[3] = color[3];
+	}
+	VERTEX(float x, float y, float z, float color0, float color1, float color2, float color3)
+	{
+		X = x;
+		Y = y;
+		Z = z;
+		Color[0] = color0;
+		Color[1] = color1;
+		Color[2] = color2;
+		Color[3] = color3;
+	}
 };
+
+struct Vec4
+{
+	float pos[4];
+	Vec4(float x, float y, float z, float w)
+	{
+		pos[0] = x;
+		pos[1] = y;
+		pos[2] = z;
+		pos[3] = w;
+	}
+	Vec4()
+	{
+		pos[0] = 0;
+		pos[1] = 0;
+		pos[2] = 0;
+		pos[3] = 0;
+	}
+};
+
+//struct MyMesh
+//{
+//	Vec4 position;
+//	Vec4 normals;
+//	vec3f uv;
+//};
+
+struct FullVert
+{
+	vec3f p;
+	vec3f n;
+	vec3f t;
+	vec3f uv;
+
+	FullVert(float px = 0.0f, float py = 0.0f, float pz = 0.0f,
+		float nx = 0.0f, float ny = 0.0f, float nz = 0.0f,
+		float tx = 0.0f, float ty = 0.0f, float tz = 0.0f,
+		float uvx = 0.0f, float uvy = 0.0f, float uvz = 0.0f)
+	{
+		p = vec3f(px, py, pz);
+		n = vec3f(nx, ny, nz);
+		t = vec3f(tx, ty, tz);
+		uv = vec3f(uvx, uvy, uvz);
+	}
+};
+
 DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
 DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
 DirectX::XMFLOAT4X4 _WorldMatrix;				//world matrix
@@ -40,6 +125,20 @@ struct Pro_View_World
 
 };
 
+enum ShadingMode
+{
+	SHADING_MODE_WIREFRAME,
+	SHADING_MODE_SHADED,
+};
+
+struct MeshData {
+	std::vector<FullVert> Vertices;
+	std::vector<int> Indices;
+};
+
+const char* filename = "../Original Assets/AnimatedBox/Box_Idle.fbx";
+ID3D11RasterizerState** rasState;
+bool wired = false;
 #pragma endregion
 
 #pragma region Foward Declarations
@@ -167,9 +266,9 @@ void InitGraphics()
 {
 	VERTEX Triangle[] =
 	{
-		{ 0.0f, 0.5f, 0.0f, (1.0f, 0.0f, 0.0f, 1.0f) },
-		{ 0.45f, -0.5, 0.0f, (0.0f, 1.0f, 0.0f, 1.0f) },
-		{ -0.45f, -0.5f, 0.0f, (0.0f, 0.0f, 1.0f, 1.0f) }
+		{ 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ 0.45f, -0.5, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f },
+		{ -0.45f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f }
 	};
 
 
@@ -294,7 +393,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		InitD3D(hWnd);
 		///////////////
 		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
-		MSG msg = { 0 };
+		MSG msg = { 0 }; 
+		std::vector<MyMesh> mesh = LoadScene(filename);
+		D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{ D3D11_FILL_MODE::D3D11_FILL_SOLID };
+		Device->CreateRasterizerState(wireFrameDesc, rasState);
 		while (TRUE)
 		{
 			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -308,6 +410,31 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				//game code goes here
 			}
+
+			if (false)
+			{
+				if (!wired)
+				{
+					//Handle switching to wireframe here
+					D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{
+						D3D11_FILL_MODE::D3D11_FILL_WIREFRAME
+						//FillMode = FillMode.Wireframe,
+						//CullMode = CullMode.Back,
+						//IsFrontCounterclockwise = false,
+						//IsDepthClipEnabled = true
+					};
+
+					Device->CreateRasterizerState(wireFrameDesc, rasState);
+				}
+				else
+				{
+					//Handle switching to filled here
+					D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{
+						D3D11_FILL_MODE::D3D11_FILL_SOLID };
+					Device->CreateRasterizerState(wireFrameDesc, rasState);
+				}
+			}
+
 			RenderFrame();
 		}
 		CleanD3D();
@@ -335,4 +462,459 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 	return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
+#pragma endregion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#pragma region IsKill
+//// Find all the cameras under this node recursively.
+//void FillCameraArrayRecursive(FbxNode* pNode, FbxArray<FbxNode*>& pCameraArray)
+//{
+//	if (pNode)
+//	{
+//		if (pNode->GetNodeAttribute())
+//		{
+//			if (pNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eCamera)
+//			{
+//				pCameraArray.Add(pNode);
+//			}
+//		}
+//
+//		const int lCount = pNode->GetChildCount();
+//		for (int i = 0; i < lCount; i++)
+//		{
+//			FillCameraArrayRecursive(pNode->GetChild(i), pCameraArray);
+//		}
+//	}
+//}
+//
+//// Find all the cameras in this scene.
+//void FillCameraArray(FbxScene* pScene, FbxArray<FbxNode*>& pCameraArray)
+//{
+//	pCameraArray.Clear();
+//
+//	FillCameraArrayRecursive(pScene->GetRootNode(), pCameraArray);
+//}
+//
+//// Find all poses in this scene.
+//void FillPoseArray(FbxScene* pScene, FbxArray<FbxPose*>& pPoseArray)
+//{
+//	const int lPoseCount = pScene->GetPoseCount();
+//
+//	for (int i = 0; i < lPoseCount; ++i)
+//	{
+//		pPoseArray.Add(pScene->GetPose(i));
+//	}
+//}
+//
+////MeshData CreateSphere(float radius, int sliceCount, int stackCount) {
+//	MeshData* ret = new MeshData();
+//	vec3f ver;
+//	ver.x = 0;
+//	ver.y = radius;
+//	ver.z = 0;
+//	ret->Vertices.push_back(ver);
+//	float phiStep = PI / stackCount;
+//	float thetaStep = 2.0f*PI / sliceCount;
+//
+//	for (int i = 1; i <= stackCount - 1; i++) {
+//		float phi = i*phiStep;
+//		for (int j = 0; j <= sliceCount; j++) {
+//			float theta = j*thetaStep;
+//			vec3f p = vec3f(
+//				(radius*sinf(phi)*cosf(theta)),
+//				(radius*cosf(phi)),
+//				(radius*sinf(phi)*sinf(theta))
+//			);
+//			
+//			vec3f t = vec3f(-radius*sinf(phi)*sinf(theta), 0, radius*sinf(phi)*cosf(theta));
+//			t.normalize();
+//			vec3f n = p;
+//			n.normalize();
+//			vec3f uv = vec3f(theta / (PI * 2), phi / PI, 1);
+//			ret->Vertices.push_back(vec3f(p, n, t, uv));
+//		}
+//	}
+//	ret.Vertices.Add(new Vertex(0, -radius, 0, 0, -1, 0, 1, 0, 0, 0, 1));
+//
+//
+//	for (int i = 1; i <= sliceCount; i++) {
+//		ret.Indices.Add(0);
+//		ret.Indices.Add(i + 1);
+//		ret.Indices.Add(i);
+//	}
+//	var baseIndex = 1;
+//	var ringVertexCount = sliceCount + 1;
+//	for (int i = 0; i < stackCount - 2; i++) {
+//		for (int j = 0; j < sliceCount; j++) {
+//			ret.Indices.Add(baseIndex + i*ringVertexCount + j);
+//			ret.Indices.Add(baseIndex + i*ringVertexCount + j + 1);
+//			ret.Indices.Add(baseIndex + (i + 1)*ringVertexCount + j);
+//
+//			ret.Indices.Add(baseIndex + (i + 1)*ringVertexCount + j);
+//			ret.Indices.Add(baseIndex + i*ringVertexCount + j + 1);
+//			ret.Indices.Add(baseIndex + (i + 1)*ringVertexCount + j + 1);
+//		}
+//	}
+//	var southPoleIndex = ret.Vertices.Count - 1;
+//	baseIndex = southPoleIndex - ringVertexCount;
+//	for (int i = 0; i < sliceCount; i++) {
+//		ret.Indices.Add(southPoleIndex);
+//		ret.Indices.Add(baseIndex + i);
+//		ret.Indices.Add(baseIndex + i + 1);
+//	}
+//	return ret;
+//}
+//
+//// Draw a limb between the node and its parent.
+//void DrawSkeleton(FbxNode* pNode, FbxAMatrix& pParentGlobalPosition, FbxAMatrix& pGlobalPosition)
+//{
+//	FbxSkeleton* lSkeleton = (FbxSkeleton*)pNode->GetNodeAttribute();
+//
+//	// Only draw the skeleton if it's a limb node and if 
+//	// the parent also has an attribute of type skeleton.
+//	if (lSkeleton->GetSkeletonType() == FbxSkeleton::eLimbNode &&
+//		pNode->GetParent() &&
+//		pNode->GetParent()->GetNodeAttribute() &&
+//		pNode->GetParent()->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+//	{
+//
+//		//GlDrawLimbNode(pParentGlobalPosition, pGlobalPosition);
+//	}
+//}
+//
+//// Draw the vertices of a mesh.
+////void DrawMesh(FbxNode* pNode, FbxTime& pTime, FbxAnimLayer* pAnimLayer,
+////	FbxAMatrix& pGlobalPosition, FbxPose* pPose, ShadingMode pShadingMode)
+////{
+////	FbxMesh* lMesh = pNode->GetMesh();
+////	const int lVertexCount = lMesh->GetControlPointsCount();
+////
+////	// No vertex to draw.
+////	if (lVertexCount == 0)
+////	{
+////		return;
+////	}
+////
+////	const VBOMesh * lMeshCache = static_cast<const VBOMesh *>(lMesh->GetUserDataPtr());
+////
+////	// If it has some defomer connection, update the vertices position
+////	const bool lHasVertexCache = lMesh->GetDeformerCount(FbxDeformer::eVertexCache) &&
+////		(static_cast<FbxVertexCacheDeformer*>(lMesh->GetDeformer(0, FbxDeformer::eVertexCache)))->Active.Get();
+////	const bool lHasShape = lMesh->GetShapeCount() > 0;
+////	const bool lHasSkin = lMesh->GetDeformerCount(FbxDeformer::eSkin) > 0;
+////	const bool lHasDeformation = lHasVertexCache || lHasShape || lHasSkin;
+////
+////	FbxVector4* lVertexArray = NULL;
+////	if (!lMeshCache || lHasDeformation)
+////	{
+////		lVertexArray = new FbxVector4[lVertexCount];
+////		memcpy(lVertexArray, lMesh->GetControlPoints(), lVertexCount * sizeof(FbxVector4));
+////	}
+////
+////	if (lHasDeformation)
+////	{
+////		// Active vertex cache deformer will overwrite any other deformer
+////		if (lHasVertexCache)
+////		{
+////			ReadVertexCacheData(lMesh, pTime, lVertexArray);
+////		}
+////		else
+////		{
+////			if (lHasShape)
+////			{
+////				// Deform the vertex array with the shapes.
+////				ComputeShapeDeformation(lMesh, pTime, pAnimLayer, lVertexArray);
+////			}
+////
+////			//we need to get the number of clusters
+////			const int lSkinCount = lMesh->GetDeformerCount(FbxDeformer::eSkin);
+////			int lClusterCount = 0;
+////			for (int lSkinIndex = 0; lSkinIndex < lSkinCount; ++lSkinIndex)
+////			{
+////				lClusterCount += ((FbxSkin *)(lMesh->GetDeformer(lSkinIndex, FbxDeformer::eSkin)))->GetClusterCount();
+////			}
+////			if (lClusterCount)
+////			{
+////				// Deform the vertex array with the skin deformer.
+////				ComputeSkinDeformation(pGlobalPosition, lMesh, pTime, lVertexArray, pPose);
+////			}
+////		}
+////
+////		if (lMeshCache)
+////			lMeshCache->UpdateVertexPosition(lMesh, lVertexArray);
+////	}
+////
+////	glPushMatrix();
+////	glMultMatrixd((const double*)pGlobalPosition);
+////
+////	if (lMeshCache)
+////	{
+////		lMeshCache->BeginDraw(pShadingMode);
+////		const int lSubMeshCount = lMeshCache->GetSubMeshCount();
+////		for (int lIndex = 0; lIndex < lSubMeshCount; ++lIndex)
+////		{
+////			if (pShadingMode == SHADING_MODE_SHADED)
+////			{
+////				const FbxSurfaceMaterial * lMaterial = pNode->GetMaterial(lIndex);
+////				if (lMaterial)
+////				{
+////					const MaterialCache * lMaterialCache = static_cast<const MaterialCache *>(lMaterial->GetUserDataPtr());
+////					if (lMaterialCache)
+////					{
+////						lMaterialCache->SetCurrentMaterial();
+////					}
+////				}
+////				else
+////				{
+////					// Draw green for faces without material
+////					MaterialCache::SetDefaultMaterial();
+////				}
+////			}
+////
+////			lMeshCache->Draw(lIndex, pShadingMode);
+////		}
+////		lMeshCache->EndDraw();
+////	}
+////	else
+////	{
+////		// OpenGL driver is too lower and use Immediate Mode
+////		glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
+////		const int lPolygonCount = lMesh->GetPolygonCount();
+////		for (int lPolygonIndex = 0; lPolygonIndex < lPolygonCount; lPolygonIndex++)
+////		{
+////			const int lVerticeCount = lMesh->GetPolygonSize(lPolygonIndex);
+////			glBegin(GL_LINE_LOOP);
+////			for (int lVerticeIndex = 0; lVerticeIndex < lVerticeCount; lVerticeIndex++)
+////			{
+////				glVertex3dv((GLdouble *)lVertexArray[lMesh->GetPolygonVertex(lPolygonIndex, lVerticeIndex)]);
+////			}
+////			glEnd();
+////		}
+////	}
+////
+////	glPopMatrix();
+////
+////	delete[] lVertexArray;
+////}
+//
+//void DrawNode(FbxNode* pNode,
+//	FbxTime& pTime,
+//	FbxAnimLayer* pAnimLayer,
+//	FbxAMatrix& pParentGlobalPosition,
+//	FbxAMatrix& pGlobalPosition,
+//	FbxPose* pPose, ShadingMode pShadingMode);
+//
+//// Draw recursively each node of the scene. To avoid recomputing 
+//// uselessly the global positions, the global position of each 
+//// node is passed to it's children while browsing the node tree.
+//// If the node is part of the given pose for the current scene,
+//// it will be drawn at the position specified in the pose, Otherwise
+//// it will be drawn at the given time.
+//void DrawNodeRecursive(FbxNode* pNode, FbxTime& pTime, FbxAnimLayer* pAnimLayer,
+//	FbxAMatrix& pParentGlobalPosition, FbxPose* pPose,
+//	ShadingMode pShadingMode)
+//{
+//	FbxAMatrix lGlobalPosition = GetGlobalPosition(pNode, pTime, pPose, &pParentGlobalPosition);
+//
+//	if (pNode->GetNodeAttribute())
+//	{
+//		// Geometry offset.
+//		// it is not inherited by the children.
+//		FbxAMatrix lGeometryOffset = GetGeometry(pNode);
+//		FbxAMatrix lGlobalOffPosition = lGlobalPosition * lGeometryOffset;
+//
+//		DrawNode(pNode, pTime, pAnimLayer, pParentGlobalPosition, lGlobalOffPosition, pPose, pShadingMode);
+//	}
+//
+//	const int lChildCount = pNode->GetChildCount();
+//	for (int lChildIndex = 0; lChildIndex < lChildCount; ++lChildIndex)
+//	{
+//		DrawNodeRecursive(pNode->GetChild(lChildIndex), pTime, pAnimLayer, lGlobalPosition, pPose, pShadingMode);
+//	}
+//}
+//
+//// Draw the node following the content of it's node attribute.
+//void DrawNode(FbxNode* pNode,
+//	FbxTime& pTime,
+//	FbxAnimLayer* pAnimLayer,
+//	FbxAMatrix& pParentGlobalPosition,
+//	FbxAMatrix& pGlobalPosition,
+//	FbxPose* pPose, ShadingMode pShadingMode)
+//{
+//	FbxNodeAttribute* lNodeAttribute = pNode->GetNodeAttribute();
+//
+//	if (lNodeAttribute)
+//	{
+//		// All lights has been processed before the whole scene because they influence every geometry.
+//		if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMarker)
+//		{
+//			//DrawMarker(pGlobalPosition);
+//		}
+//		else if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+//		{
+//			DrawSkeleton(pNode, pParentGlobalPosition, pGlobalPosition);
+//		}
+//		// NURBS and patch have been converted into triangluation meshes.
+//		else if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eMesh)
+//		{
+//			//DrawMesh(pNode, pTime, pAnimLayer, pGlobalPosition, pPose, pShadingMode);
+//		}
+//		else if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eCamera)
+//		{
+//			//DrawCamera(pNode, pTime, pAnimLayer, pGlobalPosition);
+//		}
+//		else if (lNodeAttribute->GetAttributeType() == FbxNodeAttribute::eNull)
+//		{
+//			//DrawNull(pGlobalPosition);
+//		}
+//	}
+//	else
+//	{
+//		// Draw a Null for nodes without attribute.
+//		//DrawNull(pGlobalPosition);
+//	}
+//}
+//
+//
+//// Bake node attributes and materials for this scene and load the textures.
+//void LoadCacheRecursive(FbxScene * pScene, FbxAnimLayer * pAnimLayer, const char * pFbxFileName, bool pSupportVBO)
+//{
+//	// Load the textures into GPU, only for file texture now
+//	const int lTextureCount = pScene->GetTextureCount();
+//	for (int lTextureIndex = 0; lTextureIndex < lTextureCount; ++lTextureIndex)
+//	{
+//		FbxTexture * lTexture = pScene->GetTexture(lTextureIndex);
+//		FbxFileTexture * lFileTexture = FbxCast<FbxFileTexture>(lTexture);
+//		if (lFileTexture && !lFileTexture->GetUserDataPtr())
+//		{
+//			// Try to load the texture from absolute path
+//			const FbxString lFileName = lFileTexture->GetFileName();
+//
+//			// Only TGA textures are supported now.
+//			if (lFileName.Right(3).Upper() != "TGA")
+//			{
+//				FBXSDK_printf("Only TGA textures are supported now: %s\n", lFileName.Buffer());
+//				continue;
+//			}
+//
+//			//Load texture here
+//			//GLuint lTextureObject = 0;
+//			//bool lStatus = LoadTextureFromFile(lFileName, lTextureObject);
+//
+//			const FbxString lAbsFbxFileName = FbxPathUtils::Resolve(pFbxFileName);
+//			const FbxString lAbsFolderName = FbxPathUtils::GetFolderName(lAbsFbxFileName);
+//			if (!lStatus)
+//			{
+//				// Load texture from relative file name (relative to FBX file)
+//				const FbxString lResolvedFileName = FbxPathUtils::Bind(lAbsFolderName, lFileTexture->GetRelativeFileName());
+//				lStatus = LoadTextureFromFile(lResolvedFileName, lTextureObject);
+//			}
+//
+//			if (!lStatus)
+//			{
+//				// Load texture from file name only (relative to FBX file)
+//				const FbxString lTextureFileName = FbxPathUtils::GetFileName(lFileName);
+//				const FbxString lResolvedFileName = FbxPathUtils::Bind(lAbsFolderName, lTextureFileName);
+//				lStatus = LoadTextureFromFile(lResolvedFileName, lTextureObject);
+//			}
+//
+//			if (!lStatus)
+//			{
+//				FBXSDK_printf("Failed to load texture file: %s\n", lFileName.Buffer());
+//				continue;
+//			}
+//
+//			if (lStatus)
+//			{
+//				GLuint * lTextureName = new GLuint(lTextureObject);
+//				lFileTexture->SetUserDataPtr(lTextureName);
+//			}
+//		}
+//	}
+//
+//	LoadCacheRecursive(pScene->GetRootNode(), pAnimLayer, pSupportVBO);
+//}
+//
+//
+//bool LoadFile()
+//{
+//	LoadScene(filename);
+//
+//	// Convert Axis System to what is used in this example, if needed
+//	FbxAxisSystem SceneAxisSystem = fsce->GetGlobalSettings().GetAxisSystem();
+//	FbxAxisSystem OurAxisSystem(FbxAxisSystem::eDirectX);
+//	if (SceneAxisSystem != OurAxisSystem)
+//	{
+//		OurAxisSystem.ConvertScene(fsce);
+//	}
+//
+//
+//	//For some reason this throws errors
+//	// Convert Unit System to what is used in this example, if needed
+//	//FbxSystemUnit SceneSystemUnit = fsce->GetGlobalSettings().GetSystemUnit();
+//	//if (SceneSystemUnit.GetScaleFactor() != 1.0)
+//	//{
+//	//	//The unit in this example is centimeter.
+//	//	FbxSystemUnit::cm.ConvertScene(fsce);
+//	//}
+//
+//	// Get the list of all the animation stack.
+//	fsce->FillAnimStackNameArray(mAnimStackNameArray);
+//
+//	// Get the list of all the cameras in the scene.
+//	FillCameraArray(fsce, mCameraArray);
+//
+//	//Assume Triangulated
+//	//// Convert mesh, NURBS and patch into triangle mesh
+//	//FbxGeometryConverter lGeomConverter(fman);
+//	//lGeomConverter.Triangulate(fsce, /*replace*/true);
+//
+//	// Bake the scene for one frame
+//	//LoadCacheRecursive(fsce, mCurrentAnimLayer, mFileName, false);
+//
+//	// Convert any .PC2 point cache data into the .MC format for 
+//	// vertex cache deformer playback.
+//	//PreparePointCacheData(fsce, mCache_Start, mCache_Stop);
+//
+//	// Get the list of pose in the scene
+//	FillPoseArray(fsce, mPoseArray);
+//
+//	// Initialize the window message.
+//	//mWindowMessage = "File ";
+//	//mWindowMessage += mFileName;
+//	//mWindowMessage += "\nClick on the right mouse button to enter menu.";
+//	//mWindowMessage += "\nEsc to exit.";
+//
+//	// Initialize the frame period.
+//	//mFrameTime.SetTime(0, 0, 0, 1, 0, fsce->GetGlobalSettings().GetTimeMode());
+//
+//	return true;
+//}
 #pragma endregion
