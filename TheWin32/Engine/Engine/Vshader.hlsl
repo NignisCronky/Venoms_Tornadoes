@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major)
 struct INPUT_VERTEX
 {
 	float3 coordinate : POSITION;
@@ -12,18 +13,22 @@ struct OUTPUT_VERTEX
 
 cbuffer matrices : register(b0)
 {
+	float4x4 world;
 	float4x4 projection;
 	float4x4 view;
-	float4x4 world;
 };
 
 OUTPUT_VERTEX main(INPUT_VERTEX fromVertexBuffer)
 {
 	OUTPUT_VERTEX sendToRasterizer = (OUTPUT_VERTEX)0;
-	float4 pos = float4(fromVertexBuffer.coordinate, 1);
-	pos = mul(world,pos);
-	pos = mul(view, pos);
-	pos = mul(projection, pos);
+	float4 pos = float4(fromVertexBuffer.coordinate, 1.0f);
+	pos = mul(pos,world);
+	pos = mul(pos, view);
+	pos = mul(pos, projection);
+	
+
+
+
 	sendToRasterizer.coordiante = pos;
 	sendToRasterizer.color = fromVertexBuffer.color;
 	return sendToRasterizer;
