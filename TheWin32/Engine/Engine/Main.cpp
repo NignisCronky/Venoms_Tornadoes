@@ -51,10 +51,19 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 #pragma region HelperFunctions
 void SetUpMatrices()
 {
-	DirectX::XMMATRIX Temp = DirectX::XMMatrixPerspectiveFovLH(60.0f, (4.0f / 3.0f), 0.1f, 1000);
-	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, Temp);
-	Temp = DirectX::XMMatrixTranslation(0, 0, -2);
-	DirectX::XMStoreFloat4x4(&_ViewMatrix, Temp);
+	float aspectRatio = WIDTH_P / HEIGHT_P;
+	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
+	if (aspectRatio < 1.0f)
+	{
+		fovAngleY *= 2.0f;
+	}
+	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f );
+	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, perspectiveMatrix);
+
+
+	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 0, -2.0f);
+	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+
 	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
 
 }
@@ -137,6 +146,7 @@ void RenderFrame(void)
 
 }
 
+
 void InitPipeline()
 {
 	Device->CreateVertexShader(&(Vshader), ARRAYSIZE((Vshader)), NULL, &_VertexShader);
@@ -146,14 +156,8 @@ void InitPipeline()
 	Devicecon->PSSetShader(_PixelShader, 0, 0);
 
 	SetElement(0);
-	SetUpMatrices();
 
-	//d3d11_RASTERSTATE_DESC rasterdesc
-	D3D11_RASTERIZER_DESC RasDesc;
-	ZeroMemory(&RasDesc, sizeof(RasDesc));
-	RasDesc.CullMode = D3D11_CULL_NONE;
-	RasDesc.FillMode = D3D11_FILL_SOLID;
-	Device->CreateRasterizerState(&RasDesc,&RasterState);
+
 
 }
 
@@ -161,70 +165,61 @@ void InitGraphics()
 {
 	VERTEX Triangle[] =
 	{
-		{ 0.0f, 0.0f, 0.5f,	{1.0f, 0.0f, 0.0f, 1.0f} },
-		{ 10.0f, 0.0f, 0.5f, {0.0f, 1.0f, 0.0f, 1.0f} },
-		{ 5.0f, 10.0f, 0.5f, {0.0f, 0.0f, 1.0f, 1.0f} }
+		{ 0.1f, 0.0f, 0.0f,	{1.0f, 0.0f, 0.0f, 1.0f} },
+		{ 1.0f, 0.0f, 0.0f ,{ 0.0f, 1.0f, 0.0f, 1.0f } },
+		{ 0.5f, 1.0f, 0.0f, {0.0f, 0.0f, 1.0f, 1.0f} }
 	};
 
 
-//Buffer
-D3D11_BUFFER_DESC BufferDes;
-ZeroMemory(&BufferDes, sizeof(BufferDes)); 
+	//Buffer
+	D3D11_BUFFER_DESC BufferDes;
+	ZeroMemory(&BufferDes, sizeof(BufferDes));
 
-BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-BufferDes.ByteWidth = sizeof(VERTEX) * 3;             // size is the VERTEX struct * 3
-BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
-BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+	BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+	BufferDes.ByteWidth = sizeof(VERTEX) * 3;             // size is the VERTEX struct * 3
+	BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+	BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
 
-D3D11_SUBRESOURCE_DATA data;
-data.pSysMem = &Triangle[0];
-Device->CreateBuffer(&BufferDes, &data, &_Buffer);       // create the buffer
+	D3D11_SUBRESOURCE_DATA data;
+	data.pSysMem = &Triangle[0];
+	Device->CreateBuffer(&BufferDes, &data, &_Buffer);       // create the buffer
 
-//D3D11_MAPPED_SUBRESOURCE Resourse;
-//Devicecon->Map(_Buffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &Resourse);    // map the buffer
-//memcpy(Resourse.pData, Triangle, sizeof(Triangle));                 // copy the data
-//Devicecon->Unmap(_Buffer, NULL);                                      // unmap the buffer
+	//D3D11_MAPPED_SUBRESOURCE Resourse;
+	//Devicecon->Map(_Buffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &Resourse);    // map the buffer
+	//memcpy(Resourse.pData, Triangle, sizeof(Triangle));                 // copy the data
+	//Devicecon->Unmap(_Buffer, NULL);                                      // unmap the buffer
 
-Pro_View_World MAtrices;
-MAtrices.World = _WorldMatrix;
-MAtrices.Pro = _ProjectionMatrix;
-MAtrices.View = _ViewMatrix;
+	Pro_View_World MAtrices;
+	MAtrices.World = _WorldMatrix;
+	MAtrices.Pro = _ProjectionMatrix;
+	MAtrices.View = _ViewMatrix;
 
-D3D11_BUFFER_DESC ConstantBuffer;
-ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
+	D3D11_BUFFER_DESC ConstantBuffer;
+	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
 
-ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
-ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
-ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
+	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
+	ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
 
-Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
+	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
 
-D3D11_MAPPED_SUBRESOURCE ConsREsorce;
-Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
-memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
-Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+	D3D11_MAPPED_SUBRESOURCE ConsREsorce;
+	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
 
 
-
+	D3D11_RASTERIZER_DESC RasDesc;
+	ZeroMemory(&RasDesc, sizeof(RasDesc));
+	RasDesc.CullMode = D3D11_CULL_NONE;
+	RasDesc.FillMode = D3D11_FILL_SOLID;
+	Device->CreateRasterizerState(&RasDesc, &RasterState);
 
 }
 
 void InitD3D(HWND hWnd)
 {
-	
-
-
-
-
-
-
-
-
-
-
-
-
 	// create a struct to hold information about the swap chain
 	DXGI_SWAP_CHAIN_DESC scd;
 
@@ -275,12 +270,17 @@ void InitD3D(HWND hWnd)
 
 	Devicecon->RSSetViewports(1, &viewport);
 
-	InitPipeline();
-	InitGraphics();
+
 	////////////////
-	Devicecon->RSSetState(RasterState);
 }
 
+void INIT(HWND hWnd)
+{
+	SetUpMatrices();
+	InitD3D(hWnd);
+	InitPipeline();
+	InitGraphics();
+}
 #pragma endregion
 
 #pragma region Windows Code
@@ -297,7 +297,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 		ShowWindow(hWnd, nCmdShow);
 		///////////////////////////////////////////////////////////////
-		InitD3D(hWnd);
+		INIT(hWnd);
 		///////////////
 		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
 		MSG msg = { 0 };
