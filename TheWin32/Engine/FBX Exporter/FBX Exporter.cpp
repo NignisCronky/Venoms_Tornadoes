@@ -12,95 +12,95 @@
 
 //Exporter/loader I tried writing with base code from the fbxsdk manual and http://www.walkerb.net/blog/dx-4/
 //Incomplete, only loads vertexes, but has very good comments. 
-HRESULT LoadFBX(const char* filename, std::vector<DirectX::XMFLOAT4>* pOutVertexVector)
-{
-	// Create the FBX SDK manager
-	FbxManager* lSdkManager = FbxManager::Create();
-	// Create an IOSettings object.
-	FbxIOSettings * ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
-	lSdkManager->SetIOSettings(ios);
-
-	// ... Configure the FbxIOSettings object ...
-
-	// Create an importer.
-	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
-	// Initialize the importer.
-	bool lImportStatus = lImporter->Initialize(filename, -1, lSdkManager->GetIOSettings());
-	//If any errors occur in the call to FbxImporter::Initialize(), the method returns false.
-	//To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object.
-	if (!lImportStatus) {
-		printf("Call to FbxImporter::Initialize() failed.\n");
-		printf("Error returned: %s\n\n", lImporter->GetStatus().GetErrorString());
-		exit(-1);
-	}
-	//Once the importer has been initialized, a scene container must be created to load the scene from the file.
-	//Scenes in the FBX SDK are abstracted by the FbxScene class.
-	//Create a new scene so it can be populated by the imported file.
-	FbxScene* lScene = FbxScene::Create(lSdkManager, "myScene");
-	//Import the contents of the file into the scene.
-	lImporter->Import(lScene);
-	//After the importer has populated the scene, it is safe to destroy it to reduce memory usage.
-	//The file has been imported; we can get rid of the importer.
-	lImporter->Destroy();
-	//The FBX file format version is incremented to reflect newly supported features.
-	//The FBX version of the currently imported file can be obtained by calling FbxImporter::GetFileVersion().
-	//File format version numbers to be populated.
-	int lFileMajor, lFileMinor, lFileRevision;
-	// Populate the FBX file format version numbers with the import file.
-	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
-	
-	
-	//When the FBX SDK encounters a new object that it does not recognize during the importing process,
-	  //it creates a new class for it at runtime.
-	
-	  //FbxClassId lShaderClassID = lSdkManager->FindFbxFileClass("Shader", "FlatShader");
-	//for (int i = 0; i < lNode->GetSrcObjectCount(lShaderClassID); i++) {
-	//	FbxObject* lObject = lNode->GetSrcObject(lShaderClassID, i);
-	//}
-
-
-	FbxNode* pFbxRootNode = lScene->GetRootNode();
-	if (pFbxRootNode)
-	{
-		for (int i = 0; i < pFbxRootNode->GetChildCount(); i++)
-		{
-			FbxNode* pFbxChildNode = pFbxRootNode->GetChild(i);
-
-			if (pFbxChildNode->GetNodeAttribute() == NULL)
-				continue;
-
-			FbxNodeAttribute::EType AttributeType = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
-
-			if (AttributeType != FbxNodeAttribute::eMesh)
-				continue;
-
-			FbxMesh* pMesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
-			
-			FbxVector4* pVertices = pMesh->GetControlPoints();
-			
-			for (int j = 0; j < pMesh->GetPolygonCount(); j++)
-			{
-				int iNumVertices = pMesh->GetPolygonSize(j);
-				assert(iNumVertices == 3);
-
-				for (int k = 0; k < iNumVertices; k++)
-				{
-					int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
-
-					DirectX::XMFLOAT4 vertex;
-					vertex.x = (float)pVertices[iControlPointIndex].mData[0];
-					vertex.y = (float)pVertices[iControlPointIndex].mData[1];
-					vertex.z = (float)pVertices[iControlPointIndex].mData[2];
-					vertex.w = 0.0f;
-					pOutVertexVector->push_back(vertex);
-				}
-			}
-
-		}
-
-	}
-	return S_OK;
-}
+//HRESULT LoadFBX(const char* filename, std::vector<DirectX::XMFLOAT4>* pOutVertexVector)
+//{
+//	// Create the FBX SDK manager
+//	FbxManager* lSdkManager = FbxManager::Create();
+//	// Create an IOSettings object.
+//	FbxIOSettings * ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
+//	lSdkManager->SetIOSettings(ios);
+//
+//	// ... Configure the FbxIOSettings object ...
+//
+//	// Create an importer.
+//	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
+//	// Initialize the importer.
+//	bool lImportStatus = lImporter->Initialize(filename, -1, lSdkManager->GetIOSettings());
+//	//If any errors occur in the call to FbxImporter::Initialize(), the method returns false.
+//	//To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object.
+//	if (!lImportStatus) {
+//		printf("Call to FbxImporter::Initialize() failed.\n");
+//		printf("Error returned: %s\n\n", lImporter->GetStatus().GetErrorString());
+//		exit(-1);
+//	}
+//	//Once the importer has been initialized, a scene container must be created to load the scene from the file.
+//	//Scenes in the FBX SDK are abstracted by the FbxScene class.
+//	//Create a new scene so it can be populated by the imported file.
+//	FbxScene* lScene = FbxScene::Create(lSdkManager, "myScene");
+//	//Import the contents of the file into the scene.
+//	lImporter->Import(lScene);
+//	//After the importer has populated the scene, it is safe to destroy it to reduce memory usage.
+//	//The file has been imported; we can get rid of the importer.
+//	lImporter->Destroy();
+//	//The FBX file format version is incremented to reflect newly supported features.
+//	//The FBX version of the currently imported file can be obtained by calling FbxImporter::GetFileVersion().
+//	//File format version numbers to be populated.
+//	int lFileMajor, lFileMinor, lFileRevision;
+//	// Populate the FBX file format version numbers with the import file.
+//	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
+//	
+//	
+//	//When the FBX SDK encounters a new object that it does not recognize during the importing process,
+//	  //it creates a new class for it at runtime.
+//	
+//	  //FbxClassId lShaderClassID = lSdkManager->FindFbxFileClass("Shader", "FlatShader");
+//	//for (int i = 0; i < lNode->GetSrcObjectCount(lShaderClassID); i++) {
+//	//	FbxObject* lObject = lNode->GetSrcObject(lShaderClassID, i);
+//	//}
+//
+//
+//	FbxNode* pFbxRootNode = lScene->GetRootNode();
+//	if (pFbxRootNode)
+//	{
+//		for (int i = 0; i < pFbxRootNode->GetChildCount(); i++)
+//		{
+//			FbxNode* pFbxChildNode = pFbxRootNode->GetChild(i);
+//
+//			if (pFbxChildNode->GetNodeAttribute() == NULL)
+//				continue;
+//
+//			FbxNodeAttribute::EType AttributeType = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
+//
+//			if (AttributeType != FbxNodeAttribute::eMesh)
+//				continue;
+//
+//			FbxMesh* pMesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
+//			
+//			FbxVector4* pVertices = pMesh->GetControlPoints();
+//			
+//			for (int j = 0; j < pMesh->GetPolygonCount(); j++)
+//			{
+//				int iNumVertices = pMesh->GetPolygonSize(j);
+//				assert(iNumVertices == 3);
+//
+//				for (int k = 0; k < iNumVertices; k++)
+//				{
+//					int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
+//
+//					DirectX::XMFLOAT4 vertex;
+//					vertex.x = (float)pVertices[iControlPointIndex].mData[0];
+//					vertex.y = (float)pVertices[iControlPointIndex].mData[1];
+//					vertex.z = (float)pVertices[iControlPointIndex].mData[2];
+//					vertex.w = 0.0f;
+//					pOutVertexVector->push_back(vertex);
+//				}
+//			}
+//
+//		}
+//
+//	}
+//	return S_OK;
+//}
 
 void InitializeSdkObjects(FbxManager*& pManager, FbxScene*& pScene)
 {
@@ -331,6 +331,6 @@ std::vector<MyMesh> LoadScene(const char* pFilename)
 	lImporter->Destroy();
 	
 	std::vector<MyMesh> temp = GetMyShit(pScene);
-	DestroySdkObjects(pManager, pScene);
+	DestroySdkObjects(pManager, true);
 	return temp;
 }

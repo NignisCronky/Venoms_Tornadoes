@@ -1,7 +1,6 @@
 #pragma once
 #include "stdafx.h"
 #include <vector>
-#include <DirectXMath.h>
 
 //Exporter/loader I tried writing with base code from the fbxsdk manual and http://www.walkerb.net/blog/dx-4/
 //Incomplete, only loads vertexes, but has very good comments. 

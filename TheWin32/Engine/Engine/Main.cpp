@@ -8,7 +8,6 @@
 #include "Pshader.csh"
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
-#include <directxmath.h>
 #include "../FBX Exporter/FBX Exporter.h"
 #include <vector>
 #include "vec3.h"
