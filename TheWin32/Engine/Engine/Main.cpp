@@ -1,23 +1,8 @@
 #pragma once
 // include the basic windows header file
-#include <Windows.h>
-#include "Globals.h"
-#include <d3d11.h> 
-#include <D3DX11.h>
-#include "Vshader.csh"
-#include "Pshader.csh"
-#include "NormalVertexShader.csh"
-#include "MaskPixelShader.csh"
-#include <d3d11_1.h>
-#include <d3dcompiler.h>
-#include "../FBX Exporter/FBX Exporter.h"
-#include <vector>
-#include "vec3.h"
-#include "Timer.h"
-#include "DDSTextureLoader.h"
 
-#include <directxcolors.h>
-#pragma comment (lib, "d3d11.lib")
+#include "Globals.h"
+
 using DirectX::XMMATRIX;
 using DirectX::XMFLOAT4X4;
 

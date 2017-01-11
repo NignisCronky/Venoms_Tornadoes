@@ -14,7 +14,7 @@ SamplerState modelFilter : register(s0);
 //RGBA
 float4 main(float4 pos : SV_POSITION, float4 uv : UV, float4 norm : NORMAL) : SV_TARGET
 {
-	float4 t = texModel.Sample(modelFilter, uv);
+	float4 t = texModel.Sample(modelFilter, (float2)uv);
 	if (t.a < .5f)
 		discard; 
 
