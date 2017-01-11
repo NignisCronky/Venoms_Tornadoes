@@ -11,6 +11,7 @@
 #include "../FBX Exporter/FBX Exporter.h"
 #include <vector>
 #include "vec3.h"
+#include "Timer.h"
 
 #include <directxcolors.h>
 #pragma comment (lib, "d3d11.lib")
@@ -35,8 +36,8 @@ ID3D11RasterizerState *RasterState;				// the pointer to the raster state
 //Camera Shit
 //Matrix data member for the camera
 XMFLOAT4X4 m_camera;
-LPPOINT currPos = nullptr;
-LPPOINT prevPos = nullptr;
+bool rightHeld = false;
+Timer m_timer;
 
 struct VERTEX {									// vertex structure
 	FLOAT X, Y, Z;
@@ -102,13 +103,14 @@ void SetUpMatrices()
 	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, perspectiveMatrix);
 
 	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
+	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+
+	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
 	DirectX::XMStoreFloat4x4(&m_camera, perspectiveMatrix);
-	XMStoreFloat4x4(&_ViewMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_camera))));
+	//XMStoreFloat4x4(&_ViewMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_camera))));
+
 
 	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
-
-	currPos = new POINT;
-	prevPos = new POINT;
 }
 
 void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
@@ -150,10 +152,10 @@ void SetElement(int index)
 	}
 }
 
-void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float delta_time = 1.0f)
+void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.0f)
 {
 	//W
-	if (wpar == 0x57)
+	if (GetAsyncKeyState(0x57))
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
@@ -161,7 +163,7 @@ void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float de
 		XMStoreFloat4x4(&m_camera, result);
 	}
 	//S
-	if (wpar == 0x53)
+	if (GetAsyncKeyState(0x53))
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, -moveSpd * delta_time);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
@@ -169,64 +171,65 @@ void UpdateCamera(WPARAM wpar, float const moveSpd, float const rotSpd, float de
 		XMStoreFloat4x4(&m_camera, result);
 	}
 	//A
-	if (wpar == 0x41)
-	{
-		XMMATRIX translation = DirectX::XMMatrixTranslation(-moveSpd * delta_time, 0.0f, 0.0f);
-		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-		XMStoreFloat4x4(&m_camera, result);
-	}
-	//D
-	if (wpar == 0x44)
+	if (GetAsyncKeyState(0x41))
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(moveSpd * delta_time, 0.0f, 0.0f);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
 		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
 		XMStoreFloat4x4(&m_camera, result);
 	}
-	//X
-	if (wpar == 0x58)
+	//D
+	if (GetAsyncKeyState(0x44))
 	{
-		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, -moveSpd * delta_time, 0.0f);
+		XMMATRIX translation = DirectX::XMMatrixTranslation(-moveSpd * delta_time, 0.0f, 0.0f);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
 		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
 		XMStoreFloat4x4(&m_camera, result);
 	}
-	//Space
-	if (wpar == 0x20)
+	//X
+	if (GetAsyncKeyState(0x58))
 	{
 		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, moveSpd * delta_time, 0.0f);
 		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
 		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
 		XMStoreFloat4x4(&m_camera, result);
 	}
-	if (currPos)
-		//Right Mouse Button
-		if (wpar == 0x02 && prevPos)
-		{
-			float dx = currPos->x - prevPos->x;
-			float dy = currPos->y - prevPos->y;
+	//Space
+	if (GetAsyncKeyState(0x20))
+	{
+		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, -moveSpd * delta_time, 0.0f);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+		XMStoreFloat4x4(&m_camera, result);
+	}
+	//Right Mouse Button
+	if (GetAsyncKeyState(VK_RBUTTON))
+	{
+		POINT mousePos;
+		GetCursorPos(&mousePos);
+		SetCursorPos(WIDTH_P / 2, HEIGHT_P / 2);
+		float dx = WIDTH_P / 2 - mousePos.x;
+		float dy = HEIGHT_P / 2 - mousePos.y;
 
-			DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
+		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
-			m_camera._41 = 0;
-			m_camera._42 = 0;
-			m_camera._43 = 0;
+		m_camera._41 = 0;
+		m_camera._42 = 0;
+		m_camera._43 = 0;
 
-			XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
-			XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
+		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
+		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
 
-			XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-			temp_camera = XMMatrixMultiply(rotX, temp_camera);
-			temp_camera = XMMatrixMultiply(temp_camera, rotY);
+		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+		temp_camera = XMMatrixMultiply(rotX, temp_camera);
+		temp_camera = XMMatrixMultiply(temp_camera, rotY);
 
-			XMStoreFloat4x4(&m_camera, temp_camera);
+		XMStoreFloat4x4(&m_camera, temp_camera);
 
-			m_camera._41 = pos.x;
-			m_camera._42 = pos.y;
-			m_camera._43 = pos.z;
-		}
-	prevPos = currPos;
+		m_camera._41 = pos.x;
+		m_camera._42 = pos.y;
+		m_camera._43 = pos.z;
+	}
 }
 
 #pragma endregion
@@ -247,9 +250,25 @@ void CleanD3D(void)
 	RasterState->Release();
 
 }
+D3D11_BUFFER_DESC ConstantBuffer;
+D3D11_MAPPED_SUBRESOURCE ConsREsorce;
+float carry = 0.001f;
 
 void RenderFrame(void)
 {
+	Pro_View_World MAtrices;
+	MAtrices.World = _WorldMatrix;
+	MAtrices.Pro = _ProjectionMatrix;
+	MAtrices.View = m_camera;
+	// function right here todo: fix tis jordan
+
+	//MAtrices.View._43 += carry;
+	carry += 0.001f;
+	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+
+	/////////////////////
 	// clear the back buffer to a deep blue
 	FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
 	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
@@ -271,6 +290,7 @@ void RenderFrame(void)
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
 	swapchain->Present(0, 0);
+	//////////////////////////////////////
 }
 
 
@@ -317,7 +337,7 @@ void InitGraphics()
 	MAtrices.Pro = _ProjectionMatrix;
 	MAtrices.View = _ViewMatrix;
 
-	D3D11_BUFFER_DESC ConstantBuffer;
+	//////////////////////////////////////////////
 	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
 
 	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
@@ -327,10 +347,12 @@ void InitGraphics()
 
 	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
 
-	D3D11_MAPPED_SUBRESOURCE ConsREsorce;
 	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
 	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
 	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+	//////////////////////////////////////////////
+
+
 
 
 	D3D11_RASTERIZER_DESC RasDesc;
@@ -413,9 +435,6 @@ void InitD3D(HWND hWnd)
 	viewport.Height = HEIGHT_P;
 
 	Devicecon->RSSetViewports(1, &viewport);
-
-
-	////////////////
 }
 
 void INIT(HWND hWnd)
@@ -449,8 +468,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		std::vector<MyMesh> mesh = LoadScene(filename);
 		D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{ D3D11_FILL_MODE::D3D11_FILL_SOLID };
 		Device->CreateRasterizerState(wireFrameDesc, rasState);
+		m_timer.Reset();
 		while (TRUE)
 		{
+			float delta = m_timer.GetElapsedTime() * 4.0f;
+			m_timer.Reset();
 			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 			{
 				TranslateMessage(&msg);
@@ -486,8 +508,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 					Device->CreateRasterizerState(wireFrameDesc, rasState);
 				}
 			}
+			UpdateCamera(10.0f, 10.0f, delta);
 
-			GetCursorPos(currPos);
 			RenderFrame();
 		}
 		CleanD3D();
@@ -506,13 +528,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		// close the application entirely
 		PostQuitMessage(0);
 		return 0;
-	}
-	case WM_RBUTTONDOWN:
-	case WM_CHAR:
-	case WM_KEYDOWN:
-	{
-		UpdateCamera(wParam, 0.001f, 0.001f);
-		break;
 	}
 	}
 
