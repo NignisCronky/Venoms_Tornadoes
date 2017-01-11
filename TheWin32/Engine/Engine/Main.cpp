@@ -23,7 +23,8 @@ using DirectX::XMFLOAT4X4;
 
 #pragma region Globals
 #define PI 3.141592653f
-
+bool wireFram = false;
+bool planeFram = false;
 IDXGISwapChain *swapchain;						// the pointer to the swap chain
 ID3D11Device *Device;							// the pointer to the Device
 ID3D11DeviceContext *Devicecon;					// the pointer to the Device context
@@ -211,8 +212,8 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 		POINT mousePos;
 		GetCursorPos(&mousePos);
 		SetCursorPos(WIDTH_P / 2, HEIGHT_P / 2);
-		float dx = WIDTH_P / 2 - mousePos.x;
-		float dy = HEIGHT_P / 2 - mousePos.y;
+		float dx = (float)WIDTH_P / 2 - mousePos.x;
+		float dy = (float)HEIGHT_P / 2 - mousePos.y;
 
 		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
@@ -233,10 +234,71 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 		m_camera._42 = pos.y;
 		m_camera._43 = pos.z;
 	}
+
+	//0x31 button one
+	if (GetAsyncKeyState(0x31)&1)
+	{
+		wireFram = !wireFram;
+	}
+	//button two
+	if (GetAsyncKeyState(0x32) & 1)
+	{
+		planeFram = !planeFram;
+	}
 }
 
 #pragma endregion
+void AnimateVector(bool wireframe, std::vector<MyMesh> vec)
+{
+	std::vector<VERTEX> vertextlist;
 
+	for (unsigned i = 0; i < vec.size(); i++)
+	{
+		VERTEX Temp;
+		Temp.Color = { 1.0f,0.0f,0.0f,1.0f };
+		Temp.X = vec[i].position[0];
+		Temp.Y = vec[i].position[1];
+		Temp.Z = vec[i].position[2];
+		vertextlist.push_back(Temp);
+	}
+
+	ID3D11Buffer *AniBuffer_;
+	D3D11_BUFFER_DESC AniBuffDesc;
+	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
+	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct * 3
+	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+	D3D11_SUBRESOURCE_DATA data;
+	data.pSysMem = &vertextlist[0];
+	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
+	UINT stride = sizeof(VERTEX);
+	UINT offset = 0;
+	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
+
+	ID3D11RasterizerState *AniRaster;
+	D3D11_RASTERIZER_DESC AniRasDesc;
+	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+	AniRasDesc.CullMode = D3D11_CULL_NONE;
+	if (wireframe == true)
+		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+	else
+		AniRasDesc.FillMode = D3D11_FILL_SOLID;
+	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+	Devicecon->RSSetState(AniRaster);
+	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Devicecon->Draw((unsigned)vec.size(), 0);
+	//change the raster state back to its orignal
+
+	AniBuffer_->Release();
+	AniRaster->Release();
+
+	Devicecon->RSSetState(RasterState);
+	stride = sizeof(VERTEX);
+	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
+	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+}
 #pragma region DirectX_Init
 
 void CleanD3D(void)
@@ -257,7 +319,7 @@ D3D11_BUFFER_DESC ConstantBuffer;
 D3D11_MAPPED_SUBRESOURCE ConsREsorce;
 float carry = 0.001f;
 
-void RenderFrame(void)
+void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 {
 	Pro_View_World MAtrices;
 	MAtrices.World = _WorldMatrix;
@@ -288,12 +350,29 @@ void RenderFrame(void)
 	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
 	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
-	Devicecon->DrawIndexed(6, 0, 0);
 
+
+	ID3D11RasterizerState *AniRaster;
+	D3D11_RASTERIZER_DESC AniRasDesc;
+	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+	AniRasDesc.CullMode = D3D11_CULL_NONE;
+	if (planeFram == true)
+		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+	else
+		AniRasDesc.FillMode = D3D11_FILL_SOLID;
+	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+	Devicecon->RSSetState(AniRaster);
+
+
+	Devicecon->DrawIndexed(6, 0, 0);
+	/////
+	AnimateVector(wireframe, vec);
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
 	swapchain->Present(0, 0);
 	//////////////////////////////////////
+	AniRaster->Release();
+
 }
 
 
@@ -488,32 +567,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				//game code goes here
 			}
 
-			if (false)
-			{
-				if (!wired)
-				{
-					//Handle switching to wireframe here
-					D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{
-						D3D11_FILL_MODE::D3D11_FILL_WIREFRAME
-						//FillMode = FillMode.Wireframe,
-						//CullMode = CullMode.Back,
-						//IsFrontCounterclockwise = false,
-						//IsDepthClipEnabled = true
-					};
-
-					Device->CreateRasterizerState(wireFrameDesc, rasState);
-				}
-				else
-				{
-					//Handle switching to filled here
-					D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{
-						D3D11_FILL_MODE::D3D11_FILL_SOLID };
-					Device->CreateRasterizerState(wireFrameDesc, rasState);
-				}
-			}
+			
 			UpdateCamera(10.0f, 10.0f, delta);
 
-			RenderFrame();
+			RenderFrame(wireFram, mesh);
 		}
 		CleanD3D();
 		return (int)msg.wParam;

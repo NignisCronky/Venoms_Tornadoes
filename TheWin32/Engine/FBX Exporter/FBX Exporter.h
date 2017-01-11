@@ -10,7 +10,7 @@ struct MyMesh
 {
 	float position[4];
 	float normals[4];
-	float uv[3];
+	float uv[4];
 
 	MyMesh()
 	{
