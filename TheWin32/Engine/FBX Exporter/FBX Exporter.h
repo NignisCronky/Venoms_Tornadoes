@@ -33,4 +33,29 @@ struct MyMesh
 	}
 };
 
-extern __declspec(dllexport) std::vector<MyMesh> LoadScene(const char* pFilename);
+struct Bone
+{
+	float bone[4];
+	Bone()
+	{
+
+	}
+	Bone(float boner[4])
+	{
+		bone[0] = boner[0];
+		bone[1] = boner[1];
+		bone[2] = boner[2];
+		bone[3] = boner[3];
+	}
+	Bone(float boner0, float boner1, float boner2, float boner3)
+	{
+		bone[0] = boner0;
+		bone[1] = boner1;
+		bone[2] = boner2;
+		bone[3] = boner3;
+	}
+};
+
+static std::vector<Bone> null_fill;
+
+extern __declspec(dllexport)void LoadScene(const char* pFilename, std::vector<MyMesh> &mesh, std::vector<Bone> &boner = null_fill);

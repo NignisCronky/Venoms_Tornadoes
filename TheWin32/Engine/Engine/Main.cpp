@@ -84,6 +84,7 @@ enum ShadingMode
 };
 
 const char* filename = "../Original Assets/AnimatedBox/Box_Idle.fbx";
+const char* spherename = "../Original Assets/spherical.fbx";
 ID3D11RasterizerState** rasState;
 bool wired = false;
 #pragma endregion
@@ -217,9 +218,7 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 
 		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
-		m_camera._41 = 0;
-		m_camera._42 = 0;
-		m_camera._43 = 0;
+		m_camera._41 = m_camera._42 = m_camera._43 = 0.0f;
 
 		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
 		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
@@ -235,12 +234,12 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 		m_camera._43 = pos.z;
 	}
 
-	//0x31 button one
-	if (GetAsyncKeyState(0x31)&1)
+	//1 Key
+	if (GetAsyncKeyState(0x31) & 1)
 	{
 		wireFram = !wireFram;
 	}
-	//button two
+	//2 Key
 	if (GetAsyncKeyState(0x32) & 1)
 	{
 		planeFram = !planeFram;
@@ -315,9 +314,9 @@ void CleanD3D(void)
 	RasterState->Release();
 
 }
+
 D3D11_BUFFER_DESC ConstantBuffer;
 D3D11_MAPPED_SUBRESOURCE ConsREsorce;
-float carry = 0.001f;
 
 void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 {
@@ -325,10 +324,7 @@ void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 	MAtrices.World = _WorldMatrix;
 	MAtrices.Pro = _ProjectionMatrix;
 	MAtrices.View = m_camera;
-	// function right here todo: fix tis jordan
 
-	//MAtrices.View._43 += carry;
-	carry += 0.001f;
 	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
 	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
 	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
@@ -547,7 +543,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		///////////////
 		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
 		MSG msg = { 0 };
-		std::vector<MyMesh> mesh = LoadScene(filename);
+		std::vector<MyMesh> mesh;
+		std::vector<Bone> bones;
+		LoadScene(filename, mesh, bones);
+		std::vector<MyMesh> sphere;
+		LoadScene(spherename, sphere);
 		D3D11_RASTERIZER_DESC* wireFrameDesc = new D3D11_RASTERIZER_DESC{ D3D11_FILL_MODE::D3D11_FILL_SOLID };
 		Device->CreateRasterizerState(wireFrameDesc, rasState);
 		m_timer.Reset();

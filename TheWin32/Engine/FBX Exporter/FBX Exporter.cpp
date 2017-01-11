@@ -137,89 +137,106 @@ void DestroySdkObjects(FbxManager* pManager, bool pExitStatus)
 	if (pExitStatus) FBXSDK_printf("Program Success!\n");
 }
 
-std::vector<MyMesh> GetMyShit(FbxScene* fsce)
+void GetMyShit(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
 {
-	std::vector<MyMesh> mesh;
-	FbxNode* pFbxRootNode = fsce->GetRootNode();
+	if (node->GetNodeAttribute() == NULL)
+		return;
 
-	if (pFbxRootNode)
+	FbxNodeAttribute::EType AttributeType = node->GetNodeAttribute()->GetAttributeType();
+
+	if (AttributeType == FbxNodeAttribute::eMesh)
 	{
-		for (int i = 0; i < pFbxRootNode->GetChildCount(); i++)
+		FbxMesh* pMesh = (FbxMesh*)node->GetNodeAttribute();
+
+		FbxVector4* pVertices = pMesh->GetControlPoints();
+
+		for (int j = 0; j < pMesh->GetPolygonCount(); j++)
 		{
-			FbxNode* pFbxChildNode = pFbxRootNode->GetChild(i);
-
-			if (pFbxChildNode->GetNodeAttribute() == NULL)
-				continue;
-
-			FbxNodeAttribute::EType AttributeType = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
-
-			if (AttributeType != FbxNodeAttribute::eMesh)
-				continue;
-
-			FbxMesh* pMesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
-
-			FbxVector4* pVertices = pMesh->GetControlPoints();
-
-			for (int j = 0; j < pMesh->GetPolygonCount(); j++)
+			for (int k = 0; k < 3; k++)
 			{
-				for (int k = 0; k < 3; k++)
+				int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
+
+				float vertex[4];
+				vertex[0] = (float)pVertices[iControlPointIndex].mData[0];
+				vertex[1] = (float)pVertices[iControlPointIndex].mData[1];
+				vertex[2] = (float)pVertices[iControlPointIndex].mData[2];
+				vertex[3] = 1.0f;
+
+				//get the normal element
+				FbxGeometryElementNormal* lNormalElement = pMesh->GetElementNormal();
+				float norm[4];
+				if (lNormalElement)
 				{
-					int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
-
-					float vertex[4];
-					vertex[0] = (float)pVertices[iControlPointIndex].mData[0];
-					vertex[1] = (float)pVertices[iControlPointIndex].mData[1];
-					vertex[2] = (float)pVertices[iControlPointIndex].mData[2];
-					vertex[3] = 1.0f;
-
-					//get the normal element
-					FbxGeometryElementNormal* lNormalElement = pMesh->GetElementNormal();
-					float norm[4];
-					if (lNormalElement)
+					//mapping mode is by control points. The mesh should be smooth and soft.
+					//we can get normals by retrieving each control point
+					if (lNormalElement->GetMappingMode() == FbxGeometryElement::eByControlPoint ||
+						lNormalElement->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
 					{
-						//mapping mode is by control points. The mesh should be smooth and soft.
-						//we can get normals by retrieving each control point
-						if (lNormalElement->GetMappingMode() == FbxGeometryElement::eByControlPoint ||
-							lNormalElement->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
-						{
-							int lNormalIndex = iControlPointIndex;
-							//reference mode is direct, the normal index is same as vertex index.
-							//get normals by the index of control vertex
-							/*if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eDirect)
-							lNormalIndex = i;*/
+						int lNormalIndex = iControlPointIndex;
+						//reference mode is direct, the normal index is same as vertex index.
+						//get normals by the index of control vertex
+						/*if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eDirect)
+						lNormalIndex = i;*/
 
-							//reference mode is index-to-direct, get normals by the index-to-direct
-							if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
-								lNormalIndex = lNormalElement->GetIndexArray().GetAt(iControlPointIndex);
+						//reference mode is index-to-direct, get normals by the index-to-direct
+						if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
+							lNormalIndex = lNormalElement->GetIndexArray().GetAt(iControlPointIndex);
 
-							//Got normals of each vertex.
-							FbxVector4 lNormal = lNormalElement->GetDirectArray().GetAt(lNormalIndex);
-							norm[0] = (float)lNormal[0];
-							norm[1] = (float)lNormal[1];
-							norm[2] = (float)lNormal[2];
-							norm[3] = 1.0f;
-						}
+						//Got normals of each vertex.
+						FbxVector4 lNormal = lNormalElement->GetDirectArray().GetAt(lNormalIndex);
+						norm[0] = (float)lNormal[0];
+						norm[1] = (float)lNormal[1];
+						norm[2] = (float)lNormal[2];
+						norm[3] = 1.0f;
 					}
-
-					//Get UVs
-					FbxVector2 uvCoords;
-					FbxStringList uvstring;
-					pMesh->GetUVSetNames(uvstring);
-					bool tool;
-					pMesh->GetPolygonVertexUV(j, k, uvstring.GetStringAt(0), uvCoords, tool);
-
-					float uvs[4] = { static_cast<float>(uvCoords[0]), 1.0f - static_cast<float>(uvCoords[1]), 0.0f, 0.0f };
-
-					MyMesh temp = { vertex, norm, uvs };
-					mesh.push_back(temp);
 				}
+
+				//Get UVs
+				FbxVector2 uvCoords;
+				FbxStringList uvstring;
+				pMesh->GetUVSetNames(uvstring);
+				bool tool;
+				pMesh->GetPolygonVertexUV(j, k, uvstring.GetStringAt(0), uvCoords, tool);
+
+				float uvs[4] = { static_cast<float>(uvCoords[0]), 1.0f - static_cast<float>(uvCoords[1]), 0.0f, 0.0f };
+
+				MyMesh temp = { vertex, norm, uvs };
+				mesh.push_back(temp);
 			}
 		}
 	}
-	return mesh;
+	else if (&boner != &null_fill && AttributeType == FbxNodeAttribute::eSkeleton)
+	{
+		FbxSkeleton* lSkeleton = (FbxSkeleton*)node->GetNodeAttribute();
+
+		// Only draw the skeleton if it's a limb node and if 
+		// the parent also has an attribute of type skeleton.
+		if (lSkeleton->GetSkeletonType() == FbxSkeleton::eLimbNode &&
+			node->GetParent() &&
+			node->GetParent()->GetNodeAttribute() &&
+			node->GetParent()->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+		{
+			FbxDouble3 temp = node->GeometricTranslation;
+			Bone bone = Bone((float)temp[0], (float)temp[1], (float)temp[2], 1.0f);
+			boner.push_back(bone);
+			temp = node->GetParent()->GeometricTranslation;
+			Bone boneR = Bone((float)temp[0], (float)temp[1], (float)temp[2], 1.0f);
+			boner.push_back(boneR);
+		}
+	}
+	return;
 }
 
-std::vector<MyMesh> LoadScene(const char* pFilename)
+void GetMyShitRecursive(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+{
+	GetMyShit(node, mesh, boner);
+	for (int i = 0; i < node->GetChildCount(); i++)
+	{
+		GetMyShitRecursive(node->GetChild(i), mesh, boner);
+	}
+}
+
+void LoadScene(const char* pFilename, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
 {
 	FbxManager* pManager;
 	FbxScene* pScene;
@@ -253,8 +270,7 @@ std::vector<MyMesh> LoadScene(const char* pFilename)
 			FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
 			FBXSDK_printf("FBX file format version for file '%s' is %d.%d.%d\n\n", pFilename, lFileMajor, lFileMinor, lFileRevision);
 		}
-		std::vector<MyMesh> invalidvec;
-		return invalidvec;
+		return;
 	}
 
 	FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
@@ -336,7 +352,7 @@ std::vector<MyMesh> LoadScene(const char* pFilename)
 	// Destroy the importer.
 	lImporter->Destroy();
 
-	std::vector<MyMesh> temp = GetMyShit(pScene);
+	GetMyShitRecursive(pScene->GetRootNode(), mesh, boner);
 	DestroySdkObjects(pManager, true);
-	return temp;
+	return;
 }
