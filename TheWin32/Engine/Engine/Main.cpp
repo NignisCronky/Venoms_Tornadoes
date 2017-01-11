@@ -21,6 +21,7 @@ using DirectX::XMFLOAT4X4;
 #pragma region Globals
 #define PI 3.141592653f
 bool wireFram = false;
+bool planeFram = false;
 IDXGISwapChain *swapchain;						// the pointer to the swap chain
 ID3D11Device *Device;							// the pointer to the Device
 ID3D11DeviceContext *Devicecon;					// the pointer to the Device context
@@ -231,12 +232,16 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 		m_camera._43 = pos.z;
 	}
 
-	//0x31
+	//0x31 button one
 	if (GetAsyncKeyState(0x31)&1)
 	{
 		wireFram = !wireFram;
 	}
-
+	//button two
+	if (GetAsyncKeyState(0x32) & 1)
+	{
+		planeFram = !planeFram;
+	}
 }
 
 #pragma endregion
@@ -342,6 +347,20 @@ void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
 	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
+
+
+	ID3D11RasterizerState *AniRaster;
+	D3D11_RASTERIZER_DESC AniRasDesc;
+	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+	AniRasDesc.CullMode = D3D11_CULL_NONE;
+	if (planeFram == true)
+		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+	else
+		AniRasDesc.FillMode = D3D11_FILL_SOLID;
+	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+	Devicecon->RSSetState(AniRaster);
+
+
 	Devicecon->DrawIndexed(6, 0, 0);
 	/////
 	AnimateVector(wireframe, vec);
@@ -349,6 +368,8 @@ void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 	// switch the back buffer and the front buffer
 	swapchain->Present(0, 0);
 	//////////////////////////////////////
+	AniRaster->Release();
+
 }
 
 
