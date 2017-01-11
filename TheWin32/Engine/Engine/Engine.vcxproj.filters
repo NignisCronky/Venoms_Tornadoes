@@ -21,6 +21,9 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DDSTextureLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Globals.h">
@@ -35,12 +38,21 @@
     <ClInclude Include="Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DDSTextureLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Vshader.hlsl">
       <Filter>Shadder</Filter>
     </FxCompile>
     <FxCompile Include="Pshader.hlsl">
+      <Filter>Shadder</Filter>
+    </FxCompile>
+    <FxCompile Include="MaskPixelShader.hlsl">
+      <Filter>Shadder</Filter>
+    </FxCompile>
+    <FxCompile Include="NormalVertexShader.hlsl">
       <Filter>Shadder</Filter>
     </FxCompile>
   </ItemGroup>

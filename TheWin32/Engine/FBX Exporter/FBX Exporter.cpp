@@ -202,7 +202,13 @@ std::vector<MyMesh> GetMyShit(FbxScene* fsce)
 					}
 
 					//Get UVs
-					float uvs[3] = { 0.0f, 0.0f, 0.0f };
+					FbxVector2 uvCoords;
+					FbxStringList uvstring;
+					pMesh->GetUVSetNames(uvstring);
+					bool tool;
+					pMesh->GetPolygonVertexUV(j, k, uvstring.GetStringAt(0), uvCoords, tool);
+
+					float uvs[4] = { static_cast<float>(uvCoords[0]), 1.0f - static_cast<float>(uvCoords[1]), 0.0f, 0.0f };
 
 					MyMesh temp = { vertex, norm, uvs };
 					mesh.push_back(temp);
@@ -215,7 +221,7 @@ std::vector<MyMesh> GetMyShit(FbxScene* fsce)
 
 std::vector<MyMesh> LoadScene(const char* pFilename)
 {
-	FbxManager* pManager; 
+	FbxManager* pManager;
 	FbxScene* pScene;
 
 	InitializeSdkObjects(pManager, pScene);
@@ -326,10 +332,10 @@ std::vector<MyMesh> LoadScene(const char* pFilename)
 		}
 	}
 #endif // 0
-	
+
 	// Destroy the importer.
 	lImporter->Destroy();
-	
+
 	std::vector<MyMesh> temp = GetMyShit(pScene);
 	DestroySdkObjects(pManager, true);
 	return temp;
