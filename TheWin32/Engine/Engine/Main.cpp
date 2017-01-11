@@ -246,6 +246,78 @@ void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.
 	}
 }
 
+void DrawBones(std::vector<MyMesh> Sphere_, float offset_[3])
+{
+	std::vector<VERTEX> vertextlist;
+
+	for (unsigned i = 0; i < Sphere_.size(); i++)
+	{
+		VERTEX Temp;
+		Temp.Color = { 0.5f,0.5f,0.0f,1.0f };
+		Temp.X = Sphere_[i].position[0] + offset_[0];
+		Temp.Y = Sphere_[i].position[1] + offset_[1];
+		Temp.Z = Sphere_[i].position[2] + offset_[2];
+		vertextlist.push_back(Temp);
+	}
+
+	ID3D11Buffer *AniBuffer_;
+	D3D11_BUFFER_DESC AniBuffDesc;
+	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
+	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct
+	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+	D3D11_SUBRESOURCE_DATA data;
+	data.pSysMem = &vertextlist[0];
+	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
+	UINT stride = sizeof(VERTEX);
+	UINT offset = 0;
+	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
+
+
+	ID3D11RasterizerState *AniRaster;
+	D3D11_RASTERIZER_DESC AniRasDesc;
+	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+	AniRasDesc.CullMode = D3D11_CULL_NONE;
+	AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+	Devicecon->RSSetState(AniRaster);
+	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	Devicecon->Draw((unsigned)vertextlist.size(), 0);
+
+	AniBuffer_->Release();
+	AniRaster->Release();
+
+	Devicecon->RSSetState(RasterState);
+	stride = sizeof(VERTEX);
+	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
+	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+void DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
+{
+	std::vector<VERTEX> vertextlist;
+
+	for (unsigned i = 0; i < vec.size(); i += 2)
+	{
+		VERTEX Temp;
+		Temp.Color = { 0.0f,5.0f,5.0f,1.0f };
+		Temp.X = (vec[i].bone[0] + vec[i + 1].bone[0]) / 2.0f;
+		Temp.Y = (vec[i].bone[1] + vec[i + 1].bone[1]) / 2.0f;
+		Temp.Z = (vec[i].bone[2] + vec[i + 1].bone[2]) / 2.0f;
+		vertextlist.push_back(Temp);
+	}
+
+	float ver1[3] = { vertextlist[0].X,vertextlist[0].Y,vertextlist[0].Z };
+	float ver2[3] = { vertextlist[1].X,vertextlist[1].Y,vertextlist[1].Z };
+	float ver3[3] = { vertextlist[2].X,vertextlist[2].Y,vertextlist[2].Z };
+
+	DrawBones(Sphere_, ver1);
+	DrawBones(Sphere_, ver2);
+	DrawBones(Sphere_, ver3);
+
+}
+
+
 #pragma endregion
 void AnimateVector(bool wireframe, std::vector<MyMesh> vec)
 {
@@ -318,7 +390,7 @@ void CleanD3D(void)
 D3D11_BUFFER_DESC ConstantBuffer;
 D3D11_MAPPED_SUBRESOURCE ConsREsorce;
 
-void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
+void RenderFrame(bool wireframe, std::vector<MyMesh> vec, std::vector<Bone> bones, std::vector<MyMesh> spehre_)
 {
 	Pro_View_World MAtrices;
 	MAtrices.World = _WorldMatrix;
@@ -363,8 +435,11 @@ void RenderFrame(bool wireframe, std::vector<MyMesh> vec)
 	Devicecon->DrawIndexed(6, 0, 0);
 	/////
 	AnimateVector(wireframe, vec);
+	//todo: add spehre
+	DrawSpheresForbones(bones, spehre_);
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
+
 	swapchain->Present(0, 0);
 	//////////////////////////////////////
 	AniRaster->Release();
@@ -567,10 +642,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				//game code goes here
 			}
 
-			
-			UpdateCamera(10.0f, 10.0f, delta);
 
-			RenderFrame(wireFram, mesh);
+			UpdateCamera(10.0f, 1.0f, delta);
+
+			RenderFrame(wireFram, mesh, bones, sphere);
 		}
 		CleanD3D();
 		return (int)msg.wParam;

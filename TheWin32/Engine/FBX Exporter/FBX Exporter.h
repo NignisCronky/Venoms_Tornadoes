@@ -2,10 +2,6 @@
 #include "stdafx.h"
 #include <vector>
 
-//Exporter/loader I tried writing with base code from the fbxsdk manual and http://www.walkerb.net/blog/dx-4/
-//Incomplete, only loads vertexes, but has very good comments. 
-//HRESULT LoadFBX(const char* filename, std::vector<DirectX::XMFLOAT4>* pOutVertexVector);
-
 struct MyMesh
 {
 	float position[4];
