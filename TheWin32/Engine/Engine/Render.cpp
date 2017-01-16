@@ -20,7 +20,7 @@ void Render::Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Co
 
 	this->Update(Matricies, Context);
 	this->Set(Context);
-	Context->DrawIndexed(this->m_VertIndexContainer.size(), 0, 0);
+	Context->DrawIndexed((unsigned)this->m_VertIndexContainer.size(), 0, 0);
 }
 
 Render::Render()
@@ -74,7 +74,6 @@ Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<
 	IndexBuffDesc.ByteWidth = sizeof(unsigned) * (unsigned)VertIndex.size();
 	IndexBuffDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 	IndexBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	D3D11_SUBRESOURCE_DATA data;
 	data.pSysMem = &VertIndex[0];
 	Device->CreateBuffer(&IndexBuffDesc, &data, &this->m_VertIndex);
 

@@ -22,7 +22,6 @@ class Render
 	DirectX::XMFLOAT4X4 m_WorldMatrix;
 
 	std::vector<DirectX::XMFLOAT4X4> m_Bones;
-	ID3D11Texture2D *m_Texture;
 
 	ID3D11DeviceContext *m_Context;
 	ID3D11Device *m_Device;
@@ -54,7 +53,7 @@ public:
 			XMMATRIX Temp;
 			// set to idenity
 			Temp = (DirectX::XMMatrixMultiply(DirectX::XMMatrixIdentity(), DirectX::XMMatrixTranslation(Bones[i].translation.x, Bones[i].translation.y, Bones[i].translation.z)));
-			Temp = DirectX::XMMatrixMultiply(DirectX::XMMatrixRotationQuaternion(),)
+			Temp = DirectX::XMMatrixMultiply(, );
 			// translate it
 			// rotate it
 

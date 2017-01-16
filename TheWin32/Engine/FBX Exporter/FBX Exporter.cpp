@@ -14,7 +14,11 @@ using namespace DirectX;
 
 XMFLOAT3 Vec4ToFloat3(FbxVector4 vec)
 {
-	return XMFLOAT3(vec.mData[0], vec.mData[1], vec.mData[2]);
+	return XMFLOAT3((float)vec.mData[0], (float)vec.mData[1], (float)vec.mData[2]);
+}
+XMFLOAT4 Vec4ToFloat4(FbxVector4 vec)
+{
+	return XMFLOAT4((float)vec.mData[0], (float)vec.mData[1], (float)vec.mData[2], (float)vec.mData[3]);
 }
 
 static XMMATRIX ToXm(const FbxAMatrix& pSrc)
@@ -71,7 +75,7 @@ void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myInd
 	}
 	for (int i = 0; i < inNode->GetChildCount(); i++)
 	{
-		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, mSkeleton.mJoints.size(), myIndex, mSkeleton);
+		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, (int)mSkeleton.mJoints.size(), myIndex, mSkeleton);
 	}
 }
 
@@ -154,7 +158,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 
 			// Update the information in mSkeleton 
 			mSkeleton.mJoints[currJointIndex].translation = Vec4ToFloat3(globalBindposeInverseMatrix.GetT());
-			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat3(globalBindposeInverseMatrix.GetR());
+			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat4(globalBindposeInverseMatrix.GetR());
 			//mSkeleton.mJoints[currJointIndex].scale = Vec4ToFloat3(globalBindposeInverseMatrix.GetS());
 
 			// Associate each joint with the control points it affects
@@ -163,7 +167,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 			{
 				VertexBlendingInfo currBlendingIndexWeightPair;
 				currBlendingIndexWeightPair.mBlendingIndex = currJointIndex;
-				currBlendingIndexWeightPair.mBlendingWeight = currCluster->GetControlPointWeights()[i];
+				currBlendingIndexWeightPair.mBlendingWeight = (float)currCluster->GetControlPointWeights()[i];
 				mControlPoints[currCluster->GetControlPointIndices()[i]]->mBlendingInfo.push_back(currBlendingIndexWeightPair);
 			}
 
@@ -186,7 +190,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 				FbxAMatrix currentTransformOffset = inNode->EvaluateGlobalTransform(currTime) * geometryTransform;
 				FbxAMatrix mGlobalTransform = currentTransformOffset.Inverse() * currCluster->GetLink()->EvaluateGlobalTransform(currTime);
 				currAnim.translation = Vec4ToFloat3(mGlobalTransform.GetT());
-				currAnim.rotation = Vec4ToFloat3(mGlobalTransform.GetR());
+				currAnim.rotation = Vec4ToFloat4(mGlobalTransform.GetR());
 				//currAnim.scale = Vec4ToFloat3(mGlobalTransform.GetS());
 				mSkeleton.mJoints[currJointIndex].mAnimation.push_back(currAnim);
 			}
@@ -202,106 +206,9 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 	currBlendingIndexWeightPair.mBlendingWeight = 0;
 	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
 	{
-		for (unsigned int i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
+		for (size_t i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
 		{
 			itr->second->mBlendingInfo.push_back(currBlendingIndexWeightPair);
-		}
-	}
-}
-
-
-//Loads key frames, but is a pain in the ass to program animations with
-//Only going to use if I have to
-void LoadNodeKeyframeAnimation(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton)
-{
-	// Iterate all animations (for example, walking, running, falling and etc.)
-	int numAnimations = pScene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
-	for (int animationIndex = 0; animationIndex < numAnimations; animationIndex++)
-	{
-		FbxAnimStack *animStack = (FbxAnimStack*)pScene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), animationIndex);
-		FbxAnimEvaluator *animEvaluator = pScene->GetAnimationEvaluator();
-		animStack->GetName(); // Get the name of the animation if needed
-
-							  // Iterate all the transformation layers of the animation. You can have several layers, for example one for translation, one for rotation, one for scaling and each can have keys at different frame numbers.
-		int numLayers = animStack->GetMemberCount();
-		for (int layerIndex = 0; layerIndex < numLayers; layerIndex++)
-		{
-			FbxAnimLayer *animLayer = (FbxAnimLayer*)animStack->GetMember(layerIndex);
-			animLayer->GetName(); // Get the layer's name if needed
-
-			FbxAnimCurve *translationCurve = inNode->LclTranslation.GetCurve(animLayer);
-			FbxAnimCurve *rotationCurve = inNode->LclRotation.GetCurve(animLayer);
-			FbxAnimCurve *scalingCurve = inNode->LclScaling.GetCurve(animLayer);
-
-			if (scalingCurve != 0)
-			{
-				int numKeys = scalingCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = scalingCurve->KeyGetTime(keyIndex);
-					FbxDouble3 scalingVector = inNode->EvaluateLocalScaling(frameTime);
-					float x = (float)scalingVector[0];
-					float y = (float)scalingVector[1];
-					float z = (float)scalingVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 scalingVector = inNode->LclScaling.Get();
-				float x = (float)scalingVector[0];
-				float y = (float)scalingVector[1];
-				float z = (float)scalingVector[2];
-			}
-
-			if (rotationCurve != 0)
-			{
-				int numKeys = rotationCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = rotationCurve->KeyGetTime(keyIndex);
-					FbxDouble3 rotationVector = inNode->EvaluateLocalRotation(frameTime);
-					float x = (float)rotationVector[0];
-					float y = (float)rotationVector[1];
-					float z = (float)rotationVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 rotationVector = inNode->LclRotation.Get();
-				float x = (float)rotationVector[0];
-				float y = (float)rotationVector[1];
-				float z = (float)rotationVector[2];
-			}
-
-
-			if (translationCurve != 0)
-			{
-				int numKeys = translationCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = translationCurve->KeyGetTime(keyIndex);
-					FbxDouble3 translationVector = inNode->EvaluateLocalTranslation(frameTime);
-					float x = (float)translationVector[0];
-					float y = (float)translationVector[1];
-					float z = (float)translationVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 translationVector = inNode->LclTranslation.Get();
-				float x = (float)translationVector[0];
-				float y = (float)translationVector[1];
-				float z = (float)translationVector[2];
-			}
 		}
 	}
 }
@@ -430,8 +337,8 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vecto
 	for (unsigned int i = 0; i < mTriangleCount; ++i)
 	{
 		XMFLOAT3 normal[3];
-		XMFLOAT3 tangent[3];
-		XMFLOAT3 binormal[3];
+		//XMFLOAT3 tangent[3];
+		//XMFLOAT3 binormal[3];
 		XMFLOAT2 UV[3][2];
 
 		for (unsigned int j = 0; j < 3; ++j)
@@ -503,7 +410,7 @@ void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton, std
 Keyframe Interpolate(Keyframe a, Keyframe b, float interp)
 {
 	Keyframe c;
-	c.rotation = XMFLOAT3((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z);
+	c.rotation = XMFLOAT4((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z, (1 - interp) * a.rotation.w + interp * b.rotation.w);
 	c.translation = XMFLOAT3((1 - interp) * a.translation.x + interp * b.translation.x, (1 - interp) * a.translation.y + interp * b.translation.y, (1 - interp) * a.translation.z + interp * b.translation.z);
 	return c;
 }
@@ -525,86 +432,28 @@ void ReduceKeyframes(Skeleton skelly)
 	}
 }
 
-//Unfinished code about evaluating cubic curves
-//void EvaluateIndex(double pIndex, FbxScene pScene)
-//{
-//	int IndexLeft = (int)floor(pIndex);
-//	int IndexRight = (int)ceil(pIndex);
-//	FbxAnimCurveKey *KeyLeft = InternalKeyGetPtr(IndexLeft);
-//	FbxAnimCurveKey *KeyRight = InternalKeyGetPtr(IndexRight)
-// case KFCURVE_INTERPOLATION_CUBIC:
-//	{
-//		if (KeyLeft->GetTangeantWeightMode())
-//		{
-//			double lLW;
-//			double lRW;
-//			lLW = KeyGetRightTangeantWeight(IndexLeft);
-//			lRW = KeyGetLeftTangeantWeight(IndexRight);
-//			kFCurveDouble lU = pIndex - IndexLeft;
-//			kFCurveDouble lUWarp = rtsec(CubicWarp, 0.0, 1.0, lU, lLW, lRW);
-//
-//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
-//
-//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration*lLW;
-//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration*lRW;
-//
-//			kFCurveDouble P0 = KeyLeft->GetValue();
-//			kFCurveDouble P3 = KeyRight->GetValue();
-//			kFCurveDouble P1 = P0 + LeftSlope;
-//			kFCurveDouble P2 = P3 - RightSlope;
-//
-//			kFCurveDouble P01 = lUWarp * P0 + (1.0 - lUWarp) *P1;
-//			kFCurveDouble P12 = lUWarp * P1 + (1.0 - lUWarp) *P2;
-//			kFCurveDouble P23 = lUWarp * P2 + (1.0 - lUWarp) *P3;
-//			kFCurveDouble P012 = lUWarp * P01 + (1.0 - lUWarp) *P12;
-//			kFCurveDouble P123 = lUWarp * P12 + (1.0 - lUWarp) *P23;
-//			kFCurveDouble P0123 = lUWarp * P012 + (1.0 - lUWarp) *P123;
-//
-//			return P0123;
-//
-//		}
-//		else
-//		{
-//
-//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
-//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration / 3.0;
-//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration / 3.0;
-//			kFCurveDouble P0 = KeyLeft->GetValue();
-//			kFCurveDouble P3 = KeyRight->GetValue();
-//			kFCurveDouble P01 = P0 + (LeftSlope) *(Index - IndexLeft);
-//			kFCurveDouble P12 = P0 + LeftSlope + (P3 - RightSlope - P0 - LeftSlope) *(Index - IndexLeft);
-//			kFCurveDouble P23 = P3 - RightSlope + (RightSlope) *(Index - IndexLeft);
-//			kFCurveDouble P012 = P01 + (P12 - P01) *(Index - IndexLeft);
-//			kFCurveDouble P123 = P12 + (P23 - P12) *(Index - IndexLeft);
-//			kFCurveDouble P1234 = P012 + (P123 - P012) *(Index - IndexLeft);
-//
-//			return P1234;
-//		}
-//	}
-//}
-
 void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> verts)
 {
 	std::fstream f;
 	f.open(savefile, std::ios::out | std::ios::binary);
 
 	f.write((char*)&skelly.mAnimationLength, sizeof(skelly.mAnimationLength));
-	int len = skelly.mAnimationName.size() + 1;
+	int len = (int)skelly.mAnimationName.size() + 1;
 	f.write((char*)&len, sizeof(len));
 	f.write(skelly.mAnimationName.c_str(), len);
 
-	int size = skelly.mJoints.size();
+	int size = (int)skelly.mJoints.size();
 	f.write((char*)&size, sizeof(size));
 
 	for (size_t i = 0; i < size; i++)
 	{
-		int length = skelly.mJoints[i].mName.size() + 1;
+		int length = (int)skelly.mJoints[i].mName.size() + 1;
 		f.write((char*)&length, sizeof(length));
 		f.write(skelly.mJoints[i].mName.c_str(), length);
 		f.write((char*)&skelly.mJoints[i].mParentIndex, sizeof(skelly.mJoints[i].mParentIndex));
 		f.write((char*)&skelly.mJoints[i].translation, sizeof(skelly.mJoints[i].translation));
 		f.write((char*)&skelly.mJoints[i].rotation, sizeof(skelly.mJoints[i].rotation));
-		int animsize = skelly.mJoints[i].mAnimation.size();
+		int animsize = (int)skelly.mJoints[i].mAnimation.size();
 		f.write((char*)&animsize, sizeof(animsize));
 		for (size_t j = 0; j < animsize; j++)
 		{
@@ -614,14 +463,14 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		}
 	}
 
-	int vlen = verts.size();
+	int vlen = (int)verts.size();
 	f.write((char*)&vlen, sizeof(vlen));
 	for (size_t i = 0; i < vlen; i++)
 	{
 		f.write((char*)&verts[i].mPosition, sizeof(verts[i].mPosition));
 		f.write((char*)&verts[i].mNormal, sizeof(verts[i].mNormal));
 		f.write((char*)&verts[i].mUV, sizeof(verts[i].mUV));
-		int blen = verts[i].mVertexBlendingInfos.size();
+		int blen = (int)verts[i].mVertexBlendingInfos.size();
 		f.write((char*)&blen, sizeof(blen));
 		for (size_t j = 0; j < blen; j++)
 		{
@@ -630,7 +479,7 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		}
 	}
 
-	int ilen = indicies.size();
+	int ilen = (int)indicies.size();
 	f.write((char*)&ilen, sizeof(ilen));
 	for (size_t i = 0; i < ilen; i++)
 	{
@@ -642,14 +491,13 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 
 void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = true)
 {
-	if (FILE* output = fopen(savefile, "w"))
-		if (!overwrite)
-		{
-			fclose(output);
-			return;
-		}
-		else
-			fclose(output);
+	std::ifstream f(savefile);
+	if (!overwrite && f.good())
+	{
+		f.close();
+		return;
+	}
+	f.close();
 
 	FbxManager* pManager;
 	FbxScene* pScene;
@@ -717,18 +565,18 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 		f.read(temp, length);
 		tj.mName = temp;
 		delete[] temp;
-		f.read((char*)&tj.mParentIndex,		sizeof(tj.mParentIndex));
-		f.read((char*)&tj.translation,		sizeof(tj.translation));
-		f.read((char*)&tj.rotation,			sizeof(tj.rotation));
+		f.read((char*)&tj.mParentIndex, sizeof(tj.mParentIndex));
+		f.read((char*)&tj.translation, sizeof(tj.translation));
+		f.read((char*)&tj.rotation, sizeof(tj.rotation));
 		int animsize;
 		f.read((char*)&animsize, sizeof(animsize));
 		tj.mAnimation.resize(animsize);
 		for (size_t j = 0; j < animsize; j++)
 		{
 			Keyframe tk;
-			f.read((char*)&tk.mFrameNum,	sizeof(tk.mFrameNum));
-			f.read((char*)&tk.translation,	sizeof(tk.translation));
-			f.read((char*)&tk.rotation,		sizeof(tk.rotation));
+			f.read((char*)&tk.mFrameNum, sizeof(tk.mFrameNum));
+			f.read((char*)&tk.translation, sizeof(tk.translation));
+			f.read((char*)&tk.rotation, sizeof(tk.rotation));
 			tj.mAnimation.push_back(tk);
 		}
 		skelly.mJoints.push_back(tj);
@@ -740,16 +588,16 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 	for (size_t i = 0; i < vlen; i++)
 	{
 		PNTIWVertex tv;
-		f.read((char*)&tv.mPosition,	sizeof(tv.mPosition));
-		f.read((char*)&tv.mNormal,		sizeof(tv.mNormal));
-		f.read((char*)&tv.mUV,			sizeof(tv.mUV));
+		f.read((char*)&tv.mPosition, sizeof(tv.mPosition));
+		f.read((char*)&tv.mNormal, sizeof(tv.mNormal));
+		f.read((char*)&tv.mUV, sizeof(tv.mUV));
 		int blen;
 		f.read((char*)&blen, sizeof(blen));
 		for (size_t j = 0; j < blen; j++)
 		{
 			VertexBlendingInfo tvb;
-			f.read((char*)&tvb.mBlendingIndex,	sizeof(tvb.mBlendingIndex));
-			f.read((char*)&tvb.mBlendingWeight,	sizeof(tvb.mBlendingWeight));
+			f.read((char*)&tvb.mBlendingIndex, sizeof(tvb.mBlendingIndex));
+			f.read((char*)&tvb.mBlendingWeight, sizeof(tvb.mBlendingWeight));
 			tv.mVertexBlendingInfos.push_back(tvb);
 		}
 		verts.push_back(tv);
@@ -766,4 +614,5 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 	}
 
 	f.close();
+	return true;
 }

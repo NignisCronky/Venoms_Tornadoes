@@ -1,11 +1,21 @@
-struct INPUT_VERTEX
+cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
-	float4 coordinate : SV_POSITION;
-	float4 color: COLOR;
+	matrix model;
+	matrix view;
+	matrix projection;
+	float4 vLightDir;
+	float4 vLightColor;
 };
 
-float4 main(INPUT_VERTEX fromVertexBuffer) : SV_TARGET
+texture2D texModel : register(t0);
+
+SamplerState modelFilter : register(s0);
+//RGBA
+float4 main(float4 pos : SV_POSITION, float4 uv : UV, float4 norm : NORMAL) : SV_TARGET
 {
-	return fromVertexBuffer.color;
+	float4 t = texModel.Sample(modelFilter, (float2)uv);
+
+	return t;
 }
-//todo: reformate to take in new layout
+//add lighting to this shader
+//reformate to take in new layout

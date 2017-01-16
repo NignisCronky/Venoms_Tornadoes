@@ -18,6 +18,11 @@ ID3D11Device * Device;
 ID3D11DeviceContext* Devicecon;
 ID3D11RenderTargetView *backbuffer;
 
+Pro_View_World PVW;
+
+
+
+
 #pragma region Globals
 #define PI 3.141592653f
 
@@ -91,408 +96,25 @@ void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
 }
 
 #pragma region HelperFunctions
-//void SetUpMatrices()
-//{
-//	float aspectRatio = WIDTH_P / HEIGHT_P;
-//	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
-//	if (aspectRatio < 1.0f)
-//	{
-//		fovAngleY *= 2.0f;
-//	}
-//	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f);
-//	DirectX::XMStoreFloat4x4(&_ProjectionMatrix, perspectiveMatrix);
-//
-//	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
-//	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
-//
-//	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
-//	DirectX::XMStoreFloat4x4(&m_camera, perspectiveMatrix);
-//	//XMStoreFloat4x4(&_ViewMatrix, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(&m_camera))));
-//
-//
-//	DirectX::XMStoreFloat4x4(&_WorldMatrix, DirectX::XMMatrixIdentity());
-//}
+void SetUpMatrices(Pro_View_World pvw)
+{
+	float aspectRatio = WIDTH_P / HEIGHT_P;
+	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
+	if (aspectRatio < 1.0f)
+	{
+		fovAngleY *= 2.0f;
+	}
+	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f);
+	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
+
+	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
+	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+
+	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
+}
 
 
 
-//
-//void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.0f)
-//{
-//	//W
-//	if (GetAsyncKeyState(0x57))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//S
-//	if (GetAsyncKeyState(0x53))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, -moveSpd * delta_time);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//A
-//	if (GetAsyncKeyState(0x41))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(moveSpd * delta_time, 0.0f, 0.0f);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//D
-//	if (GetAsyncKeyState(0x44))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(-moveSpd * delta_time, 0.0f, 0.0f);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//X
-//	if (GetAsyncKeyState(0x58))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, moveSpd * delta_time, 0.0f);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//Space
-//	if (GetAsyncKeyState(0x20))
-//	{
-//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, -moveSpd * delta_time, 0.0f);
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
-//		XMStoreFloat4x4(&m_camera, result);
-//	}
-//	//Right Mouse Button
-//	if (GetAsyncKeyState(VK_RBUTTON))
-//	{
-//		POINT mousePos;
-//		GetCursorPos(&mousePos);
-//		SetCursorPos(WIDTH_P / 2, HEIGHT_P / 2);
-//		float dx = (float)WIDTH_P / 2 - mousePos.x;
-//		float dy = (float)HEIGHT_P / 2 - mousePos.y;
-//
-//		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
-//
-//		m_camera._41 = m_camera._42 = m_camera._43 = 0.0f;
-//
-//		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
-//		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
-//
-//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
-//		temp_camera = XMMatrixMultiply(rotX, temp_camera);
-//		temp_camera = XMMatrixMultiply(temp_camera, rotY);
-//
-//		XMStoreFloat4x4(&m_camera, temp_camera);
-//
-//		m_camera._41 = pos.x;
-//		m_camera._42 = pos.y;
-//		m_camera._43 = pos.z;
-//	}
-//
-//	//1 Key
-//	if (GetAsyncKeyState(0x31) & 1)
-//	{
-//		wireFram = !wireFram;
-//	}
-//	//2 Key
-//	if (GetAsyncKeyState(0x32) & 1)
-//	{
-//		planeFram = !planeFram;
-//	}
-//}
-
-//void DrawBones(std::vector<MyMesh> Sphere_, float offset_[3])
-//{
-//	std::vector<VERTEX> vertextlist;
-//
-//	for (unsigned i = 0; i < Sphere_.size(); i++)
-//	{
-//		VERTEX Temp;
-//		Temp.Color = { 0.5f,0.5f,0.0f,1.0f };
-//		Temp.X = Sphere_[i].position[0] + offset_[0];
-//		Temp.Y = Sphere_[i].position[1] + offset_[1];
-//		Temp.Z = Sphere_[i].position[2] + offset_[2];
-//		vertextlist.push_back(Temp);
-//	}
-//
-//	ID3D11Buffer *AniBuffer_;
-//	D3D11_BUFFER_DESC AniBuffDesc;
-//	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
-//	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-//	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct
-//	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
-//	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-//	D3D11_SUBRESOURCE_DATA data;
-//	data.pSysMem = &vertextlist[0];
-//	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
-//	UINT stride = sizeof(VERTEX);
-//	UINT offset = 0;
-//	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
-//
-//
-//	ID3D11RasterizerState *AniRaster;
-//	D3D11_RASTERIZER_DESC AniRasDesc;
-//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
-//	AniRasDesc.CullMode = D3D11_CULL_NONE;
-//	AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
-//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
-//	Devicecon->RSSetState(AniRaster);
-//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-//	Devicecon->Draw((unsigned)vertextlist.size(), 0);
-//
-//	AniBuffer_->Release();
-//	AniRaster->Release();
-//
-//	Devicecon->RSSetState(RasterState);
-//	stride = sizeof(VERTEX);
-//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
-//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-//}
-//void DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
-//{
-//	std::vector<VERTEX> vertextlist;
-//
-//	for (unsigned i = 0; i < vec.size(); i += 2)
-//	{
-//		VERTEX Temp;
-//		Temp.Color = { 0.0f,5.0f,5.0f,1.0f };
-//		Temp.X = (vec[i].pos[0] + vec[i + 1].pos[0]) / 2.0f;
-//		Temp.Y = (vec[i].pos[1] + vec[i + 1].pos[1]) / 2.0f;
-//		Temp.Z = (vec[i].pos[2] + vec[i + 1].pos[2]) / 2.0f;
-//		vertextlist.push_back(Temp);
-//	}
-//
-//	float ver1[3] = { vertextlist[0].X,vertextlist[0].Y,vertextlist[0].Z };
-//	float ver2[3] = { vertextlist[1].X,vertextlist[1].Y,vertextlist[1].Z };
-//	float ver3[3] = { vertextlist[2].X,vertextlist[2].Y,vertextlist[2].Z };
-//
-//	DrawBones(Sphere_, ver1);
-//	DrawBones(Sphere_, ver2);
-//	DrawBones(Sphere_, ver3);
-//	//
-//}
-
-
-#pragma endregion
-//void AnimateVector(bool wireframe, std::vector<MyMesh> vec)
-//{
-//	std::vector<VERTEX> vertextlist;
-//
-//	for (unsigned i = 0; i < vec.size(); i++)
-//	{
-//		VERTEX Temp;
-//		Temp.Color = { 1.0f,0.0f,0.0f,1.0f };
-//		Temp.X = vec[i].position[0];
-//		Temp.Y = vec[i].position[1];
-//		Temp.Z = vec[i].position[2];
-//		vertextlist.push_back(Temp);
-//	}
-//
-//	ID3D11Buffer *AniBuffer_;
-//	D3D11_BUFFER_DESC AniBuffDesc;
-//	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
-//	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-//	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct * 3
-//	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
-//	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-//	D3D11_SUBRESOURCE_DATA data;
-//	data.pSysMem = &vertextlist[0];
-//	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
-//	UINT stride = sizeof(VERTEX);
-//	UINT offset = 0;
-//	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
-//
-//	ID3D11RasterizerState *AniRaster;
-//	D3D11_RASTERIZER_DESC AniRasDesc;
-//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
-//	AniRasDesc.CullMode = D3D11_CULL_NONE;
-//	if (wireframe == true)
-//		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
-//	else
-//		AniRasDesc.FillMode = D3D11_FILL_SOLID;
-//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
-//	Devicecon->RSSetState(AniRaster);
-//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-//	Devicecon->Draw((unsigned)vec.size(), 0);
-//	//change the raster state back to its orignal
-//
-//	AniBuffer_->Release();
-//	AniRaster->Release();
-//
-//	Devicecon->RSSetState(RasterState);
-//	stride = sizeof(VERTEX);
-//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
-//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-//
-//}
-//#pragma region DirectX_Init
-//
-//void CleanD3D(void)
-//{
-//	swapchain->SetFullscreenState(FALSE, NULL);
-//	// close and release all existing COM objects
-//	swapchain->Release();
-//	backbuffer->Release();
-//	Device->Release();
-//	Devicecon->Release();
-//
-//	_VertexShader->Release();
-//	_PixelShader->Release();
-//	RasterState->Release();
-//
-//}
-//
-//D3D11_BUFFER_DESC ConstantBuffer;
-//D3D11_MAPPED_SUBRESOURCE ConsREsorce;
-//
-//void RenderFrame(bool wireframe, std::vector<MyMesh> vec, std::vector<Bone> bones, std::vector<MyMesh> spehre_)
-//{
-//	Pro_View_World MAtrices;
-//	MAtrices.World = _WorldMatrix;
-//	MAtrices.Pro = _ProjectionMatrix;
-//	MAtrices.View = m_camera;
-//
-//	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
-//	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
-//	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
-//
-//	/////////////////////
-//	// clear the back buffer to a deep blue
-//	FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
-//	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
-//	///////////////////////////////////////////////////////////////////
-//
-//	// Prepare the constant buffer to send it to the graphics device.
-//	//Devicecon->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0, 0);
-//	///////////////////////////////////////////////////////////////////
-//
-//	Devicecon->IASetIndexBuffer(_IndexBuffer, DXGI_FORMAT_R32G32B32_UINT, 0);
-//	Devicecon->RSSetState(RasterState);
-//	UINT stride = sizeof(VERTEX);
-//	UINT offset = 0;
-//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
-//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-//	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
-//
-//
-//	ID3D11RasterizerState *AniRaster;
-//	D3D11_RASTERIZER_DESC AniRasDesc;
-//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
-//	AniRasDesc.CullMode = D3D11_CULL_NONE;
-//	if (planeFram == true)
-//		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
-//	else
-//		AniRasDesc.FillMode = D3D11_FILL_SOLID;
-//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
-//	Devicecon->RSSetState(AniRaster);
-//
-//
-//	Devicecon->DrawIndexed(6, 0, 0);
-//	/////
-//	AnimateVector(wireframe, vec);
-//	// add spehre
-//	DrawSpheresForbones(bones, spehre_);
-//	///////////////////////////////////////////////////////////////////
-//	// switch the back buffer and the front buffer
-//
-//	swapchain->Present(0, 0);
-//	//////////////////////////////////////
-//	AniRaster->Release();
-//
-//}
-//
-//
-//void InitPipeline()
-//{
-//	Device->CreateVertexShader(&(Vshader), ARRAYSIZE((Vshader)), NULL, &_VertexShader);
-//	Device->CreatePixelShader(&(Pshader), ARRAYSIZE((Pshader)), NULL, &_PixelShader);
-//
-//	Devicecon->VSSetShader(_VertexShader, 0, 0);
-//	Devicecon->PSSetShader(_PixelShader, 0, 0);
-//
-//	SetElement(0);
-//
-//
-//
-//}
-//
-//void InitGraphics()
-//{
-//	VERTEX Triangle[] =
-//	{
-//		{ 0.0f, 0.0f, 5.0f,	{1.0f, 0.0f, 0.0f, 1.0f}}, //bottom left
-//		{ 5.0f, 0.0f, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f}}, // bottom right
-//		{ 5.0f, 0.0f, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},// top right
-//		{ 0.0f, 0.0f, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}} // top left
-//	};
-//
-//
-//	//Buffer
-//	D3D11_BUFFER_DESC BufferDes;
-//	ZeroMemory(&BufferDes, sizeof(BufferDes));
-//
-//	BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-//	BufferDes.ByteWidth = sizeof(VERTEX) * ARRAYSIZE(Triangle);             // size is the VERTEX struct * 3
-//	BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
-//	BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-//
-//	D3D11_SUBRESOURCE_DATA data;
-//	data.pSysMem = &Triangle[0];
-//	Device->CreateBuffer(&BufferDes, &data, &_Buffer);       // create the buffer
-//
-//	Pro_View_World MAtrices;
-//	MAtrices.World = _WorldMatrix;
-//	MAtrices.Pro = _ProjectionMatrix;
-//	MAtrices.View = _ViewMatrix;
-//
-//	//////////////////////////////////////////////
-//	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
-//	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
-//	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
-//	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
-//	ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-//	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
-//	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
-//	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
-//	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
-//	//////////////////////////////////////////////
-//
-//
-//
-//
-//	D3D11_RASTERIZER_DESC RasDesc;
-//	ZeroMemory(&RasDesc, sizeof(RasDesc));
-//	RasDesc.CullMode = D3D11_CULL_NONE;
-//	RasDesc.FillMode = D3D11_FILL_SOLID;
-//	Device->CreateRasterizerState(&RasDesc, &RasterState);
-//
-//#pragma region IndexBuffer
-//
-//
-//	unsigned indexbuffer[6] = { 0,1,2,0,2,3 };
-//	D3D11_BUFFER_DESC IndexDesc;
-//	ZeroMemory(&IndexDesc, sizeof(IndexDesc));
-//
-//	IndexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-//	IndexDesc.Usage = D3D11_USAGE_DYNAMIC;
-//	IndexDesc.ByteWidth = sizeof(indexbuffer);
-//	IndexDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-//	Device->CreateBuffer(&IndexDesc, NULL, &_IndexBuffer);
-//
-//	D3D11_MAPPED_SUBRESOURCE IndexResource;
-//	Devicecon->Map(_IndexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &IndexResource);
-//	memcpy(IndexResource.pData, &indexbuffer, sizeof(indexbuffer));
-//	Devicecon->Unmap(_IndexBuffer, NULL);
-//
-//#pragma endregion
-//
-//
-//}
-//
 void InitD3D(HWND hWnd)
 {
 	// create a struct to hold information about the swap chain
@@ -562,8 +184,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		///////////////////////////////////////////////////////////////
 		
 		InitD3D(hWnd);
-		Render Box(nullptr,,,,, Devicecon,);
-		Box.Draw(backbuffer, Devicecon, );
+		SetUpMatrices(PVW);
+		Render Box(nullptr, PVW,,,, Devicecon,Device);
+		 Box.Draw(backbuffer, Devicecon,PVW );
 		
 
 
@@ -1054,3 +677,381 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 //	return true;
 //}
 #pragma endregion
+//
+//void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.0f)
+//{
+//	//W
+//	if (GetAsyncKeyState(0x57))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, moveSpd * delta_time);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//S
+//	if (GetAsyncKeyState(0x53))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, 0.0f, -moveSpd * delta_time);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//A
+//	if (GetAsyncKeyState(0x41))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(moveSpd * delta_time, 0.0f, 0.0f);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//D
+//	if (GetAsyncKeyState(0x44))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(-moveSpd * delta_time, 0.0f, 0.0f);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//X
+//	if (GetAsyncKeyState(0x58))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, moveSpd * delta_time, 0.0f);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//Space
+//	if (GetAsyncKeyState(0x20))
+//	{
+//		XMMATRIX translation = DirectX::XMMatrixTranslation(0.0f, -moveSpd * delta_time, 0.0f);
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		XMMATRIX result = XMMatrixMultiply(translation, temp_camera);
+//		XMStoreFloat4x4(&m_camera, result);
+//	}
+//	//Right Mouse Button
+//	if (GetAsyncKeyState(VK_RBUTTON))
+//	{
+//		POINT mousePos;
+//		GetCursorPos(&mousePos);
+//		SetCursorPos(WIDTH_P / 2, HEIGHT_P / 2);
+//		float dx = (float)WIDTH_P / 2 - mousePos.x;
+//		float dy = (float)HEIGHT_P / 2 - mousePos.y;
+//
+//		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
+//
+//		m_camera._41 = m_camera._42 = m_camera._43 = 0.0f;
+//
+//		XMMATRIX rotX = DirectX::XMMatrixRotationX(dy * rotSpd * delta_time);
+//		XMMATRIX rotY = DirectX::XMMatrixRotationY(dx * rotSpd * delta_time);
+//
+//		XMMATRIX temp_camera = XMLoadFloat4x4(&m_camera);
+//		temp_camera = XMMatrixMultiply(rotX, temp_camera);
+//		temp_camera = XMMatrixMultiply(temp_camera, rotY);
+//
+//		XMStoreFloat4x4(&m_camera, temp_camera);
+//
+//		m_camera._41 = pos.x;
+//		m_camera._42 = pos.y;
+//		m_camera._43 = pos.z;
+//	}
+//
+//	//1 Key
+//	if (GetAsyncKeyState(0x31) & 1)
+//	{
+//		wireFram = !wireFram;
+//	}
+//	//2 Key
+//	if (GetAsyncKeyState(0x32) & 1)
+//	{
+//		planeFram = !planeFram;
+//	}
+//}
+
+//void DrawBones(std::vector<MyMesh> Sphere_, float offset_[3])
+//{
+//	std::vector<VERTEX> vertextlist;
+//
+//	for (unsigned i = 0; i < Sphere_.size(); i++)
+//	{
+//		VERTEX Temp;
+//		Temp.Color = { 0.5f,0.5f,0.0f,1.0f };
+//		Temp.X = Sphere_[i].position[0] + offset_[0];
+//		Temp.Y = Sphere_[i].position[1] + offset_[1];
+//		Temp.Z = Sphere_[i].position[2] + offset_[2];
+//		vertextlist.push_back(Temp);
+//	}
+//
+//	ID3D11Buffer *AniBuffer_;
+//	D3D11_BUFFER_DESC AniBuffDesc;
+//	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
+//	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+//	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct
+//	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+//	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+//	D3D11_SUBRESOURCE_DATA data;
+//	data.pSysMem = &vertextlist[0];
+//	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
+//	UINT stride = sizeof(VERTEX);
+//	UINT offset = 0;
+//	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
+//
+//
+//	ID3D11RasterizerState *AniRaster;
+//	D3D11_RASTERIZER_DESC AniRasDesc;
+//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+//	AniRasDesc.CullMode = D3D11_CULL_NONE;
+//	AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+//	Devicecon->RSSetState(AniRaster);
+//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+//	Devicecon->Draw((unsigned)vertextlist.size(), 0);
+//
+//	AniBuffer_->Release();
+//	AniRaster->Release();
+//
+//	Devicecon->RSSetState(RasterState);
+//	stride = sizeof(VERTEX);
+//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
+//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+//}
+//void DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
+//{
+//	std::vector<VERTEX> vertextlist;
+//
+//	for (unsigned i = 0; i < vec.size(); i += 2)
+//	{
+//		VERTEX Temp;
+//		Temp.Color = { 0.0f,5.0f,5.0f,1.0f };
+//		Temp.X = (vec[i].pos[0] + vec[i + 1].pos[0]) / 2.0f;
+//		Temp.Y = (vec[i].pos[1] + vec[i + 1].pos[1]) / 2.0f;
+//		Temp.Z = (vec[i].pos[2] + vec[i + 1].pos[2]) / 2.0f;
+//		vertextlist.push_back(Temp);
+//	}
+//
+//	float ver1[3] = { vertextlist[0].X,vertextlist[0].Y,vertextlist[0].Z };
+//	float ver2[3] = { vertextlist[1].X,vertextlist[1].Y,vertextlist[1].Z };
+//	float ver3[3] = { vertextlist[2].X,vertextlist[2].Y,vertextlist[2].Z };
+//
+//	DrawBones(Sphere_, ver1);
+//	DrawBones(Sphere_, ver2);
+//	DrawBones(Sphere_, ver3);
+//	//
+//}
+
+
+
+//void AnimateVector(bool wireframe, std::vector<MyMesh> vec)
+//{
+//	std::vector<VERTEX> vertextlist;
+//
+//	for (unsigned i = 0; i < vec.size(); i++)
+//	{
+//		VERTEX Temp;
+//		Temp.Color = { 1.0f,0.0f,0.0f,1.0f };
+//		Temp.X = vec[i].position[0];
+//		Temp.Y = vec[i].position[1];
+//		Temp.Z = vec[i].position[2];
+//		vertextlist.push_back(Temp);
+//	}
+//
+//	ID3D11Buffer *AniBuffer_;
+//	D3D11_BUFFER_DESC AniBuffDesc;
+//	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
+//	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+//	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct * 3
+//	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+//	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+//	D3D11_SUBRESOURCE_DATA data;
+//	data.pSysMem = &vertextlist[0];
+//	Device->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
+//	UINT stride = sizeof(VERTEX);
+//	UINT offset = 0;
+//	Devicecon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
+//
+//	ID3D11RasterizerState *AniRaster;
+//	D3D11_RASTERIZER_DESC AniRasDesc;
+//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+//	AniRasDesc.CullMode = D3D11_CULL_NONE;
+//	if (wireframe == true)
+//		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+//	else
+//		AniRasDesc.FillMode = D3D11_FILL_SOLID;
+//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+//	Devicecon->RSSetState(AniRaster);
+//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+//	Devicecon->Draw((unsigned)vec.size(), 0);
+//	//change the raster state back to its orignal
+//
+//	AniBuffer_->Release();
+//	AniRaster->Release();
+//
+//	Devicecon->RSSetState(RasterState);
+//	stride = sizeof(VERTEX);
+//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
+//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+//
+//}
+//#pragma region DirectX_Init
+//
+//void CleanD3D(void)
+//{
+//	swapchain->SetFullscreenState(FALSE, NULL);
+//	// close and release all existing COM objects
+//	swapchain->Release();
+//	backbuffer->Release();
+//	Device->Release();
+//	Devicecon->Release();
+//
+//	_VertexShader->Release();
+//	_PixelShader->Release();
+//	RasterState->Release();
+//
+//}
+//
+//D3D11_BUFFER_DESC ConstantBuffer;
+//D3D11_MAPPED_SUBRESOURCE ConsREsorce;
+//
+//void RenderFrame(bool wireframe, std::vector<MyMesh> vec, std::vector<Bone> bones, std::vector<MyMesh> spehre_)
+//{
+//	Pro_View_World MAtrices;
+//	MAtrices.World = _WorldMatrix;
+//	MAtrices.Pro = _ProjectionMatrix;
+//	MAtrices.View = m_camera;
+//
+//	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+//	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+//	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+//
+//	/////////////////////
+//	// clear the back buffer to a deep blue
+//	FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
+//	Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
+//	///////////////////////////////////////////////////////////////////
+//
+//	// Prepare the constant buffer to send it to the graphics device.
+//	//Devicecon->UpdateSubresource(m_constantBuffer.Get(), 0, NULL, &m_constantBufferData, 0, 0, 0);
+//	///////////////////////////////////////////////////////////////////
+//
+//	Devicecon->IASetIndexBuffer(_IndexBuffer, DXGI_FORMAT_R32G32B32_UINT, 0);
+//	Devicecon->RSSetState(RasterState);
+//	UINT stride = sizeof(VERTEX);
+//	UINT offset = 0;
+//	Devicecon->IASetVertexBuffers(0, 1, &_Buffer, &stride, &offset);
+//	Devicecon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+//	Devicecon->VSSetConstantBuffers(0, 1, &_ConstantBuffer);
+//
+//
+//	ID3D11RasterizerState *AniRaster;
+//	D3D11_RASTERIZER_DESC AniRasDesc;
+//	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+//	AniRasDesc.CullMode = D3D11_CULL_NONE;
+//	if (planeFram == true)
+//		AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+//	else
+//		AniRasDesc.FillMode = D3D11_FILL_SOLID;
+//	Device->CreateRasterizerState(&AniRasDesc, &AniRaster);
+//	Devicecon->RSSetState(AniRaster);
+//
+//
+//	Devicecon->DrawIndexed(6, 0, 0);
+//	/////
+//	AnimateVector(wireframe, vec);
+//	// add spehre
+//	DrawSpheresForbones(bones, spehre_);
+//	///////////////////////////////////////////////////////////////////
+//	// switch the back buffer and the front buffer
+//
+//	swapchain->Present(0, 0);
+//	//////////////////////////////////////
+//	AniRaster->Release();
+//
+//}
+//
+//
+//void InitPipeline()
+//{
+//	Device->CreateVertexShader(&(Vshader), ARRAYSIZE((Vshader)), NULL, &_VertexShader);
+//	Device->CreatePixelShader(&(Pshader), ARRAYSIZE((Pshader)), NULL, &_PixelShader);
+//
+//	Devicecon->VSSetShader(_VertexShader, 0, 0);
+//	Devicecon->PSSetShader(_PixelShader, 0, 0);
+//
+//	SetElement(0);
+//
+//
+//
+//}
+//
+//void InitGraphics()
+//{
+//	VERTEX Triangle[] =
+//	{
+//		{ 0.0f, 0.0f, 5.0f,	{1.0f, 0.0f, 0.0f, 1.0f}}, //bottom left
+//		{ 5.0f, 0.0f, 5.0f, {1.0f, 0.0f, 0.0f, 1.0f}}, // bottom right
+//		{ 5.0f, 0.0f, 0.0f, {1.0f, 0.0f, 0.0f, 1.0f}},// top right
+//		{ 0.0f, 0.0f, 0.0f, {0.0f, 1.0f, 0.0f, 1.0f}} // top left
+//	};
+//
+//
+//	//Buffer
+//	D3D11_BUFFER_DESC BufferDes;
+//	ZeroMemory(&BufferDes, sizeof(BufferDes));
+//
+//	BufferDes.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+//	BufferDes.ByteWidth = sizeof(VERTEX) * ARRAYSIZE(Triangle);             // size is the VERTEX struct * 3
+//	BufferDes.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+//	BufferDes.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+//
+//	D3D11_SUBRESOURCE_DATA data;
+//	data.pSysMem = &Triangle[0];
+//	Device->CreateBuffer(&BufferDes, &data, &_Buffer);       // create the buffer
+//
+//	Pro_View_World MAtrices;
+//	MAtrices.World = _WorldMatrix;
+//	MAtrices.Pro = _ProjectionMatrix;
+//	MAtrices.View = _ViewMatrix;
+//
+//	//////////////////////////////////////////////
+//	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
+//	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+//	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
+//	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
+//	ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+//	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
+//	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
+//	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
+//	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer
+//	//////////////////////////////////////////////
+//
+//
+//
+//
+//	D3D11_RASTERIZER_DESC RasDesc;
+//	ZeroMemory(&RasDesc, sizeof(RasDesc));
+//	RasDesc.CullMode = D3D11_CULL_NONE;
+//	RasDesc.FillMode = D3D11_FILL_SOLID;
+//	Device->CreateRasterizerState(&RasDesc, &RasterState);
+//
+//#pragma region IndexBuffer
+//
+//
+//	unsigned indexbuffer[6] = { 0,1,2,0,2,3 };
+//	D3D11_BUFFER_DESC IndexDesc;
+//	ZeroMemory(&IndexDesc, sizeof(IndexDesc));
+//
+//	IndexDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+//	IndexDesc.Usage = D3D11_USAGE_DYNAMIC;
+//	IndexDesc.ByteWidth = sizeof(indexbuffer);
+//	IndexDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+//	Device->CreateBuffer(&IndexDesc, NULL, &_IndexBuffer);
+//
+//	D3D11_MAPPED_SUBRESOURCE IndexResource;
+//	Devicecon->Map(_IndexBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &IndexResource);
+//	memcpy(IndexResource.pData, &indexbuffer, sizeof(indexbuffer));
+//	Devicecon->Unmap(_IndexBuffer, NULL);
+//
+//#pragma endregion
+//
+//
+//}
+//

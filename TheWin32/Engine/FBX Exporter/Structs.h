@@ -119,7 +119,7 @@ struct Keyframe
 {
 	long long mFrameNum;
 	XMFLOAT3 translation;
-	XMFLOAT3 rotation;
+	XMFLOAT4 rotation;
 	//XMFLOAT3 scale;
 
 	Keyframe()
@@ -134,7 +134,8 @@ struct Keyframe
 			translation.z == a.translation.z &&
 			rotation.x == a.rotation.x &&
 			rotation.y == a.rotation.y &&
-			rotation.z == a.rotation.z;
+			rotation.z == a.rotation.z &&
+			rotation.w == a.rotation.w;
 	}
 };
 
@@ -144,13 +145,14 @@ struct Joint
 	std::string mName;
 	int mParentIndex;
 	XMFLOAT3 translation;
-	XMFLOAT3 rotation;
+	XMFLOAT4 rotation;
 	//XMFLOAT3 scale;
 	std::vector<Keyframe> mAnimation;
 
 	Joint()
 	{
-		translation = rotation = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		translation = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		rotation = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		mParentIndex = -1;
 	}
 
