@@ -31,24 +31,46 @@ struct MyMesh
 
 struct Bone
 {
-	float bone[4];
+	//position
+	float pos[4];
+	//rotation
+	float rot[4];
+	//scale
+	float sca[4];
 	Bone()
 	{
 
 	}
-	Bone(float boner[4])
+	Bone(float boner[4], float rottenboner[4], float scalyboner[4])
 	{
-		bone[0] = boner[0];
-		bone[1] = boner[1];
-		bone[2] = boner[2];
-		bone[3] = boner[3];
+		pos[0] = boner[0];
+		pos[1] = boner[1];
+		pos[2] = boner[2];
+		pos[3] = boner[3];
+		rot[0] = rottenboner[0];
+		rot[1] = rottenboner[1];
+		rot[2] = rottenboner[2];
+		rot[3] = rottenboner[3];
+		sca[0] = scalyboner[0];
+		sca[1] = scalyboner[1];
+		sca[2] = scalyboner[2];
+		sca[3] = scalyboner[3];
+
 	}
-	Bone(float boner0, float boner1, float boner2, float boner3)
+	Bone(float boner0, float boner1, float boner2, float boner3, float rottenboner0, float rottenboner1, float rottenboner2, float rottenboner3, float scalyboner0, float scalyboner1, float scalyboner2, float scalyboner3)
 	{
-		bone[0] = boner0;
-		bone[1] = boner1;
-		bone[2] = boner2;
-		bone[3] = boner3;
+		pos[0] = boner0;
+		pos[1] = boner1;
+		pos[2] = boner2;
+		pos[3] = boner3;
+		rot[0] = rottenboner0;
+		rot[1] = rottenboner1;
+		rot[2] = rottenboner2;
+		rot[3] = rottenboner3;
+		sca[0] = scalyboner0;
+		sca[1] = scalyboner1;
+		sca[2] = scalyboner2;
+		sca[3] = scalyboner3;
 	}
 };
 

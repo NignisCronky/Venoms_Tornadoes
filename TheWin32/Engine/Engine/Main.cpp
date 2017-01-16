@@ -281,9 +281,9 @@ void DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
 	{
 		VERTEX Temp;
 		Temp.Color = { 0.0f,5.0f,5.0f,1.0f };
-		Temp.X = (vec[i].bone[0] + vec[i + 1].bone[0]) / 2.0f;
-		Temp.Y = (vec[i].bone[1] + vec[i + 1].bone[1]) / 2.0f;
-		Temp.Z = (vec[i].bone[2] + vec[i + 1].bone[2]) / 2.0f;
+		Temp.X = (vec[i].pos[0] + vec[i + 1].pos[0]) / 2.0f;
+		Temp.Y = (vec[i].pos[1] + vec[i + 1].pos[1]) / 2.0f;
+		Temp.Z = (vec[i].pos[2] + vec[i + 1].pos[2]) / 2.0f;
 		vertextlist.push_back(Temp);
 	}
 

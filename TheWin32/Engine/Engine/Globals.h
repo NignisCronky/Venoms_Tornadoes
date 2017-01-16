@@ -1,8 +1,6 @@
 #pragma once
 
 #include <Windows.h>
-//#include <d3d11.h> 
-//#include <D3DX11.h>
 #include "Vshader.csh"
 #include "Pshader.csh"
 #include "_VertShader.csh"
@@ -10,11 +8,8 @@
 #include "_LightShader.csh"
 #include "NormalVertexShader.csh"
 #include "MaskPixelShader.csh"
-//#include <d3d11_1.h>
-//#include <d3dcompiler.h>
 #include "../FBX Exporter/FBX Exporter.h"
 #include <vector>
-#include "vec3.h"
 #include "Timer.h"
 #include "DDSTextureLoader.h"
 #include <directxcolors.h>

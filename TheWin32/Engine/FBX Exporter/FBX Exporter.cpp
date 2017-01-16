@@ -10,6 +10,11 @@
 #define IOS_REF (*(pManager->GetIOSettings()))
 #endif
 
+//float[4] Vector4ToFloat4(FbxVector4 vec)
+//{
+//
+//}
+
 void InitializeSdkObjects(FbxManager*& pManager, FbxScene*& pScene)
 {
 	//The first thing to do is to create the FBX Manager which is the object allocator for almost all the classes in the SDK
@@ -188,24 +193,12 @@ void GetMyShit(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &bone
 	}
 	else if (&boner != &null_fill && AttributeType == FbxNodeAttribute::eSkeleton)
 	{
-		FbxSkeleton* lSkeleton = (FbxSkeleton*)node->GetNodeAttribute();
-
-		// Only draw the skeleton if it's a limb node and if 
-		// the parent also has an attribute of type skeleton.
-		if (lSkeleton->GetSkeletonType() == FbxSkeleton::eLimbNode &&
-			node->GetParent() &&
-			node->GetParent()->GetNodeAttribute() &&
-			node->GetParent()->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
-		{
-			FbxAMatrix temp = node->EvaluateGlobalTransform(0);
-			FbxVector4 temper = temp.GetT();
-			Bone bone = Bone((float)temper.mData[0], (float)temper.mData[1], (float)temper.mData[2], 1.0f);
-			boner.push_back(bone);
-			temp = node->EvaluateGlobalTransform(0);
-			temper = temp.GetT();
-			Bone boneR = Bone((float)temper.mData[0], (float)temper.mData[1], (float)temper.mData[2], 1.0f);
-			boner.push_back(boneR);
-		}
+		FbxAMatrix temp = node->EvaluateGlobalTransform(0);
+		FbxVector4 tempt = temp.GetT();
+		FbxVector4 tempr = temp.GetR();
+		FbxVector4 temps = temp.GetS();
+		Bone bone = Bone((float)tempt.mData[0], (float)tempt.mData[1], (float)tempt.mData[2], (float)tempt.mData[3], (float)tempr.mData[0], (float)tempr.mData[1], (float)tempr.mData[2], (float)tempr.mData[3], (float)temps.mData[0], (float)temps.mData[1], (float)temps.mData[2], (float)temps.mData[3]);
+		boner.push_back(bone);
 	}
 	return;
 }
