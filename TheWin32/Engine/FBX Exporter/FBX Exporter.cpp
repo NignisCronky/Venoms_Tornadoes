@@ -1,427 +1,769 @@
 // FBX Exporter.cpp : Defines the exported functions for the DLL application.
 #pragma once
-#include "stdafx.h"
+#include <fbxsdk.h>
 #include <fbxsdk\fileio\fbxiosettings.h>
 #include "FBX Exporter.h"
-#include "fbxsdk.h"
+#include <fstream>
 
 #ifdef IOS_REF
 #undef  IOS_REF
 #define IOS_REF (*(pManager->GetIOSettings()))
 #endif
 
-//float[4] Vector4ToFloat4(FbxVector4 vec)
-//{
-//
-//}
+using namespace DirectX;
+
+XMFLOAT3 Vec4ToFloat3(FbxVector4 vec)
+{
+	return XMFLOAT3(vec.mData[0], vec.mData[1], vec.mData[2]);
+}
+
+static XMMATRIX ToXm(const FbxAMatrix& pSrc)
+{
+	return XMMatrixSet(
+		static_cast<float>(pSrc.Get(0, 0)), static_cast<float>(pSrc.Get(0, 1)), static_cast<float>(pSrc.Get(0, 2)), static_cast<float>(pSrc.Get(0, 3)),
+		static_cast<float>(pSrc.Get(1, 0)), static_cast<float>(pSrc.Get(1, 1)), static_cast<float>(pSrc.Get(1, 2)), static_cast<float>(pSrc.Get(1, 3)),
+		static_cast<float>(pSrc.Get(2, 0)), static_cast<float>(pSrc.Get(2, 1)), static_cast<float>(pSrc.Get(2, 2)), static_cast<float>(pSrc.Get(2, 3)),
+		static_cast<float>(pSrc.Get(3, 0)), static_cast<float>(pSrc.Get(3, 1)), static_cast<float>(pSrc.Get(3, 2)), static_cast<float>(pSrc.Get(3, 3)));
+}
+
+FbxAMatrix GetGeometryTransformation(FbxNode* inNode)
+{
+	if (!inNode)
+	{
+		throw std::exception("Null for mesh geometry");
+	}
+
+	const FbxVector4 lT = inNode->GetGeometricTranslation(FbxNode::eSourcePivot);
+	const FbxVector4 lR = inNode->GetGeometricRotation(FbxNode::eSourcePivot);
+	const FbxVector4 lS = inNode->GetGeometricScaling(FbxNode::eSourcePivot);
+
+	return FbxAMatrix(lT, lR, lS);
+}
 
 void InitializeSdkObjects(FbxManager*& pManager, FbxScene*& pScene)
 {
 	//The first thing to do is to create the FBX Manager which is the object allocator for almost all the classes in the SDK
 	pManager = FbxManager::Create();
 	if (!pManager)
-	{
-		FBXSDK_printf("Error: Unable to create FBX Manager!\n");
-		exit(1);
-	}
-	else FBXSDK_printf("Autodesk FBX SDK version %s\n", pManager->GetVersion());
+		return;
 
-	//Create an IOSettings object. This object holds all import/export settings.
-	FbxIOSettings* ios = FbxIOSettings::Create(pManager, IOSROOT);
-	pManager->SetIOSettings(ios);
+	FbxIOSettings* fbxIOSettings = FbxIOSettings::Create(pManager, IOSROOT);
+	pManager->SetIOSettings(fbxIOSettings);
 
-	//Load plugins from the executable directory (optional)
-	FbxString lPath = FbxGetApplicationDirectory();
-	pManager->LoadPluginsDirectory(lPath.Buffer());
-
-	//Create an FBX scene. This object holds most objects imported/exported from/to files.
-	pScene = FbxScene::Create(pManager, "My Scene");
-	if (!pScene)
-	{
-		FBXSDK_printf("Error: Unable to create FBX scene!\n");
-		exit(1);
-	}
+	pScene = FbxScene::Create(pManager, "myScene");
 }
 
-void DestroySdkObjects(FbxManager* pManager, bool pExitStatus)
+void DestroySdkObjects(FbxManager* pManager, FbxScene*& pScene)
 {
 	//Delete the FBX Manager. All the objects that have been allocated using the FBX Manager and that haven't been explicitly destroyed are also automatically destroyed.
 	if (pManager) pManager->Destroy();
-	if (pExitStatus) FBXSDK_printf("Program Success!\n");
+	if (pScene) pScene->Destroy();
 }
 
-// Get the matrix of the given pose
-FbxAMatrix GetPoseMatrix(FbxPose* pPose, int pNodeIndex)
+void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myIndex, int inParentIndex, Skeleton mSkeleton)
 {
-	FbxAMatrix lPoseMatrix;
-	FbxMatrix lMatrix = pPose->GetMatrix(pNodeIndex);
-
-	memcpy((double*)lPoseMatrix, (double*)lMatrix, sizeof(lMatrix.mData));
-
-	return lPoseMatrix;
-}
-
-// Get the global position of the node for the current pose.
-// If the specified node is not part of the pose or no pose is specified, get its
-// global position at the current time.
-FbxAMatrix GetGlobalPosition(FbxNode* pNode, FbxPose* pPose, FbxAMatrix* pParentGlobalPosition = nullptr)
-{
-	FbxAMatrix lGlobalPosition;
-	bool lPositionFound = false;
-
-	if (pPose)
+	if (inNode->GetNodeAttribute() && inNode->GetNodeAttribute()->GetAttributeType() && inNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 	{
-		int lNodeIndex = pPose->Find(pNode);
+		Joint currJoint;
+		currJoint.mParentIndex = inParentIndex;
+		currJoint.mName = inNode->GetName();
+		mSkeleton.mJoints.push_back(currJoint);
+	}
+	for (int i = 0; i < inNode->GetChildCount(); i++)
+	{
+		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, mSkeleton.mJoints.size(), myIndex, mSkeleton);
+	}
+}
 
-		if (lNodeIndex > -1)
+void ProcessSkeletonHierarchy(FbxNode* inRootNode, Skeleton mSkeleton)
+{
+
+	for (int childIndex = 0; childIndex < inRootNode->GetChildCount(); ++childIndex)
+	{
+		FbxNode* currNode = inRootNode->GetChild(childIndex);
+		ProcessSkeletonHierarchyRecursively(currNode, 0, 0, -1, mSkeleton);
+	}
+}
+
+void ProcessControlPoints(FbxNode* inNode)
+{
+	FbxMesh* currMesh = inNode->GetMesh();
+	unsigned int ctrlPointCount = currMesh->GetControlPointsCount();
+	for (unsigned int i = 0; i < ctrlPointCount; ++i)
+	{
+		CtrlPoint* currCtrlPoint = new CtrlPoint();
+		XMFLOAT3 currPosition;
+		currPosition.x = static_cast<float>(currMesh->GetControlPointAt(i).mData[0]);
+		currPosition.y = static_cast<float>(currMesh->GetControlPointAt(i).mData[1]);
+		currPosition.z = static_cast<float>(currMesh->GetControlPointAt(i).mData[2]);
+		currCtrlPoint->mPosition = currPosition;
+		mControlPoints[i] = currCtrlPoint;
+	}
+}
+
+unsigned int FindJointIndexUsingName(const std::string& inJointName, Skeleton mSkeleton)
+{
+	for (unsigned int i = 0; i < mSkeleton.mJoints.size(); ++i)
+	{
+		if (mSkeleton.mJoints[i].mName == inJointName)
 		{
-			// The bind pose is always a global matrix.
-			// If we have a rest pose, we need to check if it is
-			// stored in global or local space.
-			if (pPose->IsBindPose() || !pPose->IsLocalMatrix(lNodeIndex))
+			return i;
+		}
+	}
+
+	throw std::exception("Skeleton information in FBX file is corrupted.");
+}
+
+void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton)
+{
+	FbxMesh* currMesh = inNode->GetMesh();
+	unsigned int numOfDeformers = currMesh->GetDeformerCount();
+	// This geometry transform is something I cannot understand
+	// I think it is from MotionBuilder
+	// If you are using Maya for your models, 99% this is just an
+	// identity matrix
+	// But I am taking it into account anyways......
+	FbxAMatrix geometryTransform = GetGeometryTransformation(inNode);
+
+	// A deformer is a FBX thing, which contains some clusters
+	// A cluster contains a link, which is basically a joint
+	// Normally, there is only one deformer in a mesh
+	for (unsigned int deformerIndex = 0; deformerIndex < numOfDeformers; ++deformerIndex)
+	{
+		// There are many types of deformers in Maya,
+		// We are using only skins, so we see if this is a skin
+		FbxSkin* currSkin = reinterpret_cast<FbxSkin*>(currMesh->GetDeformer(deformerIndex, FbxDeformer::eSkin));
+		if (!currSkin)
+		{
+			continue;
+		}
+
+		unsigned int numOfClusters = currSkin->GetClusterCount();
+		for (unsigned int clusterIndex = 0; clusterIndex < numOfClusters; ++clusterIndex)
+		{
+			FbxCluster* currCluster = currSkin->GetCluster(clusterIndex);
+			std::string currJointName = currCluster->GetLink()->GetName();
+			unsigned int currJointIndex = FindJointIndexUsingName(currJointName, mSkeleton);
+			FbxAMatrix transformMatrix;
+			FbxAMatrix transformLinkMatrix;
+			FbxAMatrix globalBindposeInverseMatrix;
+
+			currCluster->GetTransformMatrix(transformMatrix);	// The transformation of the mesh at binding time
+			currCluster->GetTransformLinkMatrix(transformLinkMatrix);	// The transformation of the cluster(joint) at binding time from joint space to world space
+			globalBindposeInverseMatrix = transformLinkMatrix.Inverse() * transformMatrix * geometryTransform;
+
+			// Update the information in mSkeleton 
+			mSkeleton.mJoints[currJointIndex].translation = Vec4ToFloat3(globalBindposeInverseMatrix.GetT());
+			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat3(globalBindposeInverseMatrix.GetR());
+			//mSkeleton.mJoints[currJointIndex].scale = Vec4ToFloat3(globalBindposeInverseMatrix.GetS());
+
+			// Associate each joint with the control points it affects
+			unsigned int numOfIndices = currCluster->GetControlPointIndicesCount();
+			for (unsigned int i = 0; i < numOfIndices; ++i)
 			{
-				lGlobalPosition = GetPoseMatrix(pPose, lNodeIndex);
+				VertexBlendingInfo currBlendingIndexWeightPair;
+				currBlendingIndexWeightPair.mBlendingIndex = currJointIndex;
+				currBlendingIndexWeightPair.mBlendingWeight = currCluster->GetControlPointWeights()[i];
+				mControlPoints[currCluster->GetControlPointIndices()[i]]->mBlendingInfo.push_back(currBlendingIndexWeightPair);
+			}
+
+			// Get animation information
+			// Now only supports one take
+			FbxAnimStack* currAnimStack = pScene->GetSrcObject<FbxAnimStack>(0);
+			FbxString animStackName = currAnimStack->GetName();
+			mSkeleton.mAnimationName = animStackName.Buffer();
+			FbxTakeInfo* takeInfo = pScene->GetTakeInfo(animStackName);
+			FbxTime start = takeInfo->mLocalTimeSpan.GetStart();
+			FbxTime end = takeInfo->mLocalTimeSpan.GetStop();
+			mSkeleton.mAnimationLength = end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1;
+
+			for (FbxLongLong i = start.GetFrameCount(FbxTime::eFrames24); i <= end.GetFrameCount(FbxTime::eFrames24); ++i)
+			{
+				Keyframe currAnim;
+				FbxTime currTime;
+				currTime.SetFrame(i, FbxTime::eFrames24);
+				currAnim.mFrameNum = i;
+				FbxAMatrix currentTransformOffset = inNode->EvaluateGlobalTransform(currTime) * geometryTransform;
+				FbxAMatrix mGlobalTransform = currentTransformOffset.Inverse() * currCluster->GetLink()->EvaluateGlobalTransform(currTime);
+				currAnim.translation = Vec4ToFloat3(mGlobalTransform.GetT());
+				currAnim.rotation = Vec4ToFloat3(mGlobalTransform.GetR());
+				//currAnim.scale = Vec4ToFloat3(mGlobalTransform.GetS());
+				mSkeleton.mJoints[currJointIndex].mAnimation.push_back(currAnim);
+			}
+		}
+	}
+
+	// Some of the control points only have less than 4 joints
+	// affecting them.
+	// For a normal renderer, there are usually 4 joints
+	// I am adding more dummy joints if there isn't enough
+	VertexBlendingInfo currBlendingIndexWeightPair;
+	currBlendingIndexWeightPair.mBlendingIndex = 0;
+	currBlendingIndexWeightPair.mBlendingWeight = 0;
+	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
+	{
+		for (unsigned int i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
+		{
+			itr->second->mBlendingInfo.push_back(currBlendingIndexWeightPair);
+		}
+	}
+}
+
+
+//Loads key frames, but is a pain in the ass to program animations with
+//Only going to use if I have to
+void LoadNodeKeyframeAnimation(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton)
+{
+	// Iterate all animations (for example, walking, running, falling and etc.)
+	int numAnimations = pScene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
+	for (int animationIndex = 0; animationIndex < numAnimations; animationIndex++)
+	{
+		FbxAnimStack *animStack = (FbxAnimStack*)pScene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), animationIndex);
+		FbxAnimEvaluator *animEvaluator = pScene->GetAnimationEvaluator();
+		animStack->GetName(); // Get the name of the animation if needed
+
+							  // Iterate all the transformation layers of the animation. You can have several layers, for example one for translation, one for rotation, one for scaling and each can have keys at different frame numbers.
+		int numLayers = animStack->GetMemberCount();
+		for (int layerIndex = 0; layerIndex < numLayers; layerIndex++)
+		{
+			FbxAnimLayer *animLayer = (FbxAnimLayer*)animStack->GetMember(layerIndex);
+			animLayer->GetName(); // Get the layer's name if needed
+
+			FbxAnimCurve *translationCurve = inNode->LclTranslation.GetCurve(animLayer);
+			FbxAnimCurve *rotationCurve = inNode->LclRotation.GetCurve(animLayer);
+			FbxAnimCurve *scalingCurve = inNode->LclScaling.GetCurve(animLayer);
+
+			if (scalingCurve != 0)
+			{
+				int numKeys = scalingCurve->KeyGetCount();
+				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
+				{
+					FbxTime frameTime = scalingCurve->KeyGetTime(keyIndex);
+					FbxDouble3 scalingVector = inNode->EvaluateLocalScaling(frameTime);
+					float x = (float)scalingVector[0];
+					float y = (float)scalingVector[1];
+					float z = (float)scalingVector[2];
+
+					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
+				}
 			}
 			else
 			{
-				// We have a local matrix, we need to convert it to
-				// a global space matrix.
-				FbxAMatrix lParentGlobalPosition;
-
-				if (pParentGlobalPosition)
-				{
-					lParentGlobalPosition = *pParentGlobalPosition;
-				}
-				else
-				{
-					if (pNode->GetParent())
-					{
-						lParentGlobalPosition = GetGlobalPosition(pNode->GetParent(), pPose);
-					}
-				}
-
-				FbxAMatrix lLocalPosition = GetPoseMatrix(pPose, lNodeIndex);
-				lGlobalPosition = lParentGlobalPosition * lLocalPosition;
+				// If this animation layer has no scaling curve, then use the default one, if needed
+				FbxDouble3 scalingVector = inNode->LclScaling.Get();
+				float x = (float)scalingVector[0];
+				float y = (float)scalingVector[1];
+				float z = (float)scalingVector[2];
 			}
 
-			lPositionFound = true;
-		}
-	}
-
-	if (!lPositionFound)
-	{
-		// There is no pose entry for that node, get the current global position instead.
-
-		// Ideally this would use parent global position and local position to compute the global position.
-		// Unfortunately the equation 
-		//    lGlobalPosition = pParentGlobalPosition * lLocalPosition
-		// does not hold when inheritance type is other than "Parent" (RSrs).
-		// To compute the parent rotation and scaling is tricky in the RrSs and Rrs cases.
-		lGlobalPosition = pNode->EvaluateGlobalTransform(FbxTime(0));
-	}
-
-	return lGlobalPosition;
-}
-
-void GetMyShit(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
-{
-	if (node->GetNodeAttribute() == NULL)
-		return;
-
-	FbxNodeAttribute::EType AttributeType = node->GetNodeAttribute()->GetAttributeType();
-
-	if (AttributeType == FbxNodeAttribute::eMesh)
-	{
-		FbxMesh* pMesh = (FbxMesh*)node->GetNodeAttribute();
-
-		FbxVector4* pVertices = pMesh->GetControlPoints();
-
-		for (int j = 0; j < pMesh->GetPolygonCount(); j++)
-		{
-			for (int k = 0; k < 3; k++)
+			if (rotationCurve != 0)
 			{
-				int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
-
-				float vertex[4];
-				vertex[0] = (float)pVertices[iControlPointIndex].mData[0];
-				vertex[1] = (float)pVertices[iControlPointIndex].mData[1];
-				vertex[2] = (float)pVertices[iControlPointIndex].mData[2];
-				vertex[3] = 1.0f;
-
-				//get the normal element
-				FbxGeometryElementNormal* lNormalElement = pMesh->GetElementNormal();
-				float norm[4];
-				if (lNormalElement)
+				int numKeys = rotationCurve->KeyGetCount();
+				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
 				{
-					//mapping mode is by control points. The mesh should be smooth and soft.
-					//we can get normals by retrieving each control point
-					if (lNormalElement->GetMappingMode() == FbxGeometryElement::eByControlPoint ||
-						lNormalElement->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
-					{
-						int lNormalIndex = iControlPointIndex;
-						//reference mode is direct, the normal index is same as vertex index.
-						//get normals by the index of control vertex
-						/*if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eDirect)
-						lNormalIndex = i;*/
+					FbxTime frameTime = rotationCurve->KeyGetTime(keyIndex);
+					FbxDouble3 rotationVector = inNode->EvaluateLocalRotation(frameTime);
+					float x = (float)rotationVector[0];
+					float y = (float)rotationVector[1];
+					float z = (float)rotationVector[2];
 
-						//reference mode is index-to-direct, get normals by the index-to-direct
-						if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
-							lNormalIndex = lNormalElement->GetIndexArray().GetAt(iControlPointIndex);
-
-						//Got normals of each vertex.
-						FbxVector4 lNormal = lNormalElement->GetDirectArray().GetAt(lNormalIndex);
-						norm[0] = (float)lNormal[0];
-						norm[1] = (float)lNormal[1];
-						norm[2] = (float)lNormal[2];
-						norm[3] = 1.0f;
-					}
+					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
 				}
+			}
+			else
+			{
+				// If this animation layer has no scaling curve, then use the default one, if needed
+				FbxDouble3 rotationVector = inNode->LclRotation.Get();
+				float x = (float)rotationVector[0];
+				float y = (float)rotationVector[1];
+				float z = (float)rotationVector[2];
+			}
 
-				//Get UVs
-				FbxVector2 uvCoords;
-				FbxStringList uvstring;
-				pMesh->GetUVSetNames(uvstring);
-				bool tool;
-				pMesh->GetPolygonVertexUV(j, k, uvstring.GetStringAt(0), uvCoords, tool);
 
-				float uvs[4] = { static_cast<float>(uvCoords[0]), 1.0f - static_cast<float>(uvCoords[1]), 0.0f, 0.0f };
+			if (translationCurve != 0)
+			{
+				int numKeys = translationCurve->KeyGetCount();
+				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
+				{
+					FbxTime frameTime = translationCurve->KeyGetTime(keyIndex);
+					FbxDouble3 translationVector = inNode->EvaluateLocalTranslation(frameTime);
+					float x = (float)translationVector[0];
+					float y = (float)translationVector[1];
+					float z = (float)translationVector[2];
 
-				MyMesh temp = { vertex, norm, uvs };
-				mesh.push_back(temp);
+					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
+				}
+			}
+			else
+			{
+				// If this animation layer has no scaling curve, then use the default one, if needed
+				FbxDouble3 translationVector = inNode->LclTranslation.Get();
+				float x = (float)translationVector[0];
+				float y = (float)translationVector[1];
+				float z = (float)translationVector[2];
 			}
 		}
 	}
-	else if (&boner != &null_fill && AttributeType == FbxNodeAttribute::eSkeleton)
-	{
-		FbxAMatrix temp = node->EvaluateGlobalTransform(0);
-		FbxVector4 tempt = temp.GetT();
-		FbxVector4 tempr = temp.GetR();
-		FbxVector4 temps = temp.GetS();
-		Bone bone = Bone((float)tempt.mData[0], (float)tempt.mData[1], (float)tempt.mData[2], (float)tempt.mData[3], (float)tempr.mData[0], (float)tempr.mData[1], (float)tempr.mData[2], (float)tempr.mData[3], (float)temps.mData[0], (float)temps.mData[1], (float)temps.mData[2], (float)temps.mData[3]);
-		boner.push_back(bone);
-	}
-	return;
 }
 
-void GetMyShitRecursive(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+void ReadNormal(FbxMesh* inMesh, int inCtrlPointIndex, int inVertexCounter, XMFLOAT3& outNormal)
 {
-	GetMyShit(node, mesh, boner);
-	for (int i = 0; i < node->GetChildCount(); i++)
+	if (inMesh->GetElementNormalCount() < 1)
 	{
-		GetMyShitRecursive(node->GetChild(i), mesh, boner);
+		throw std::exception("Invalid Normal Number");
+	}
+
+	FbxGeometryElementNormal* vertexNormal = inMesh->GetElementNormal(0);
+	switch (vertexNormal->GetMappingMode())
+	{
+	case FbxGeometryElement::eByControlPoint:
+		switch (vertexNormal->GetReferenceMode())
+		{
+		case FbxGeometryElement::eDirect:
+		{
+			outNormal.x = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inCtrlPointIndex).mData[0]);
+			outNormal.y = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inCtrlPointIndex).mData[1]);
+			outNormal.z = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inCtrlPointIndex).mData[2]);
+		}
+		break;
+
+		case FbxGeometryElement::eIndexToDirect:
+		{
+			int index = vertexNormal->GetIndexArray().GetAt(inCtrlPointIndex);
+			outNormal.x = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[0]);
+			outNormal.y = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[1]);
+			outNormal.z = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[2]);
+		}
+		break;
+
+		default:
+			throw std::exception("Invalid Reference");
+		}
+		break;
+
+	case FbxGeometryElement::eByPolygonVertex:
+		switch (vertexNormal->GetReferenceMode())
+		{
+		case FbxGeometryElement::eDirect:
+		{
+			outNormal.x = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inVertexCounter).mData[0]);
+			outNormal.y = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inVertexCounter).mData[1]);
+			outNormal.z = static_cast<float>(vertexNormal->GetDirectArray().GetAt(inVertexCounter).mData[2]);
+		}
+		break;
+
+		case FbxGeometryElement::eIndexToDirect:
+		{
+			int index = vertexNormal->GetIndexArray().GetAt(inVertexCounter);
+			outNormal.x = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[0]);
+			outNormal.y = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[1]);
+			outNormal.z = static_cast<float>(vertexNormal->GetDirectArray().GetAt(index).mData[2]);
+		}
+		break;
+
+		default:
+			throw std::exception("Invalid Reference");
+		}
+		break;
 	}
 }
 
-void LoadScene(const char* pFilename, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+void ReadUV(FbxMesh* inMesh, int inCtrlPointIndex, int inTextureUVIndex, int inUVLayer, XMFLOAT2& outUV)
 {
-	FbxManager* pManager;
-	FbxScene* pScene;
-
-	InitializeSdkObjects(pManager, pScene);
-
-	int lFileMajor, lFileMinor, lFileRevision;
-	int lSDKMajor, lSDKMinor, lSDKRevision;
-	//int lFileFormat = -1;
-	int i, lAnimStackCount;
-	bool lStatus;
-
-	// Get the file version number generate by the FBX SDK.
-	FbxManager::GetFileFormatVersion(lSDKMajor, lSDKMinor, lSDKRevision);
-
-	// Create an importer.
-	FbxImporter* lImporter = FbxImporter::Create(pManager, "");
-
-	// Initialize the importer by providing a filename.
-	const bool lImportStatus = lImporter->Initialize(pFilename, -1, pManager->GetIOSettings());
-	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
-
-	if (!lImportStatus)
+	if (inUVLayer >= 2 || inMesh->GetElementUVCount() <= inUVLayer)
 	{
-		FbxString error = lImporter->GetStatus().GetErrorString();
-		FBXSDK_printf("Call to FbxImporter::Initialize() failed.\n");
-		FBXSDK_printf("Error returned: %s\n\n", error.Buffer());
-
-		if (lImporter->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion)
-		{
-			FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
-			FBXSDK_printf("FBX file format version for file '%s' is %d.%d.%d\n\n", pFilename, lFileMajor, lFileMinor, lFileRevision);
-		}
-		return;
+		throw std::exception("Invalid UV Layer Number");
 	}
+	FbxGeometryElementUV* vertexUV = inMesh->GetElementUV(inUVLayer);
 
-	FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
-
-	if (lImporter->IsFBX())
+	switch (vertexUV->GetMappingMode())
 	{
-		FBXSDK_printf("FBX file format version for file '%s' is %d.%d.%d\n\n", pFilename, lFileMajor, lFileMinor, lFileRevision);
-
-		// From this point, it is possible to access animation stack information without
-		// the expense of loading the entire file.
-
-		FBXSDK_printf("Animation Stack Information\n");
-
-		lAnimStackCount = lImporter->GetAnimStackCount();
-
-		FBXSDK_printf("    Number of Animation Stacks: %d\n", lAnimStackCount);
-		FBXSDK_printf("    Current Animation Stack: \"%s\"\n", lImporter->GetActiveAnimStackName().Buffer());
-		FBXSDK_printf("\n");
-
-		for (i = 0; i < lAnimStackCount; i++)
+	case FbxGeometryElement::eByControlPoint:
+		switch (vertexUV->GetReferenceMode())
 		{
-			FbxTakeInfo* lTakeInfo = lImporter->GetTakeInfo(i);
-
-			FBXSDK_printf("    Animation Stack %d\n", i);
-			FBXSDK_printf("         Name: \"%s\"\n", lTakeInfo->mName.Buffer());
-			FBXSDK_printf("         Description: \"%s\"\n", lTakeInfo->mDescription.Buffer());
-
-			// Change the value of the import name if the animation stack should be imported 
-			// under a different name.
-			FBXSDK_printf("         Import Name: \"%s\"\n", lTakeInfo->mImportName.Buffer());
-
-			// Set the value of the import state to false if the animation stack should be not
-			// be imported. 
-			FBXSDK_printf("         Import State: %s\n", lTakeInfo->mSelect ? "true" : "false");
-			FBXSDK_printf("\n");
+		case FbxGeometryElement::eDirect:
+		{
+			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(inCtrlPointIndex).mData[0]);
+			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(inCtrlPointIndex).mData[1]);
 		}
+		break;
 
-		// Set the import states. By default, the import states are always set to 
-		// true. The code below shows how to change these states.
-		IOS_REF.SetBoolProp(IMP_FBX_MATERIAL, true);
-		IOS_REF.SetBoolProp(IMP_FBX_TEXTURE, true);
-		IOS_REF.SetBoolProp(IMP_FBX_LINK, true);
-		IOS_REF.SetBoolProp(IMP_FBX_SHAPE, true);
-		IOS_REF.SetBoolProp(IMP_FBX_GOBO, true);
-		IOS_REF.SetBoolProp(IMP_FBX_ANIMATION, true);
-		IOS_REF.SetBoolProp(IMP_FBX_GLOBAL_SETTINGS, true);
-	}
-
-	// Import the scene.
-	lStatus = lImporter->Import(pScene);
-
-	//If working with passwords enable
-#ifdef false
-	char lPassword[1024];
-	if (lStatus == false && lImporter->GetStatus().GetCode() == FbxStatus::ePasswordError)
-	{
-		FBXSDK_printf("Please enter password: ");
-
-		lPassword[0] = '\0';
-
-		FBXSDK_CRT_SECURE_NO_WARNING_BEGIN
-			scanf("%s", lPassword);
-		FBXSDK_CRT_SECURE_NO_WARNING_END
-
-			FbxString lString(lPassword);
-
-		IOS_REF.SetStringProp(IMP_FBX_PASSWORD, lString);
-		IOS_REF.SetBoolProp(IMP_FBX_PASSWORD_ENABLE, true);
-
-		lStatus = lImporter->Import(pScene);
-
-		if (lStatus == false && lImporter->GetStatus().GetCode() == FbxStatus::ePasswordError)
+		case FbxGeometryElement::eIndexToDirect:
 		{
-			FBXSDK_printf("\nPassword is wrong, import aborted.\n");
+			int index = vertexUV->GetIndexArray().GetAt(inCtrlPointIndex);
+			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(index).mData[0]);
+			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(index).mData[1]);
+		}
+		break;
+
+		default:
+			throw std::exception("Invalid Reference");
+		}
+		break;
+
+	case FbxGeometryElement::eByPolygonVertex:
+		switch (vertexUV->GetReferenceMode())
+		{
+		case FbxGeometryElement::eDirect:
+		case FbxGeometryElement::eIndexToDirect:
+		{
+			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(inTextureUVIndex).mData[0]);
+			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(inTextureUVIndex).mData[1]);
+		}
+		break;
+
+		default:
+			throw std::exception("Invalid Reference");
+		}
+		break;
+	}
+}
+
+void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> mVertices)
+{
+	FbxMesh* currMesh = inNode->GetMesh();
+
+	unsigned int mTriangleCount = currMesh->GetPolygonCount();
+	int vertexCounter = 0;
+	indicies.reserve(mTriangleCount);
+
+	for (unsigned int i = 0; i < mTriangleCount; ++i)
+	{
+		XMFLOAT3 normal[3];
+		XMFLOAT3 tangent[3];
+		XMFLOAT3 binormal[3];
+		XMFLOAT2 UV[3][2];
+
+		for (unsigned int j = 0; j < 3; ++j)
+		{
+			int ctrlPointIndex = currMesh->GetPolygonVertex(i, j);
+			CtrlPoint* currCtrlPoint = mControlPoints[ctrlPointIndex];
+
+			ReadNormal(currMesh, ctrlPointIndex, vertexCounter, normal[j]);
+			// We only have diffuse texture
+			for (int k = 0; k < 1; ++k)
+			{
+				ReadUV(currMesh, ctrlPointIndex, currMesh->GetTextureUVIndex(i, j), k, UV[j][k]);
+			}
+
+			PNTIWVertex temp;
+			temp.mPosition = currCtrlPoint->mPosition;
+			temp.mNormal = normal[j];
+			temp.mUV = UV[j][0];
+			// Copy the blending info from each control point
+			for (unsigned int i = 0; i < currCtrlPoint->mBlendingInfo.size(); ++i)
+			{
+				VertexBlendingInfo currBlendingInfo;
+				currBlendingInfo.mBlendingIndex = currCtrlPoint->mBlendingInfo[i].mBlendingIndex;
+				currBlendingInfo.mBlendingWeight = currCtrlPoint->mBlendingInfo[i].mBlendingWeight;
+				temp.mVertexBlendingInfos.push_back(currBlendingInfo);
+			}
+			// Sort the blending info so that later we can remove
+			// duplicated vertices
+			temp.SortBlendingInfoByWeight();
+
+			mVertices.push_back(temp);
+			indicies.push_back(vertexCounter);
+			++vertexCounter;
 		}
 	}
-#endif // 0
 
-	// Destroy the importer.
-	lImporter->Destroy();
-
-	GetMyShitRecursive(pScene->GetRootNode(), mesh, boner);
-	DestroySdkObjects(pManager, true);
-	return;
+	// Now mControlPoints has served its purpose
+	// We can free its memory
+	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
+	{
+		delete itr->second;
+	}
+	mControlPoints.clear();
 }
 
 
-//Exporter/loader I tried writing with base code from the fbxsdk manual and http://www.walkerb.net/blog/dx-4/
-//Incomplete, only loads vertexes, but has very good comments. 
-//HRESULT LoadFBX(const char* filename, std::vector<DirectX::XMFLOAT4>* pOutVertexVector)
+void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> mVertices)
+{
+	if (inNode->GetNodeAttribute())
+	{
+		switch (inNode->GetNodeAttribute()->GetAttributeType())
+		{
+		case FbxNodeAttribute::eMesh:
+			ProcessControlPoints(inNode);
+			ProcessJointsAndAnimations(pScene, inNode, mSkeleton);
+			ProcessMesh(inNode, indicies, mVertices);
+			//AssociateMaterialToMesh(inNode);
+			//ProcessMaterials(inNode);
+			break;
+		}
+	}
+
+	for (int i = 0; i < inNode->GetChildCount(); ++i)
+	{
+		ProcessGeometry(pScene, inNode->GetChild(i), mSkeleton, indicies, mVertices);
+	}
+}
+
+Keyframe Interpolate(Keyframe a, Keyframe b, float interp)
+{
+	Keyframe c;
+	c.rotation = XMFLOAT3((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z);
+	c.translation = XMFLOAT3((1 - interp) * a.translation.x + interp * b.translation.x, (1 - interp) * a.translation.y + interp * b.translation.y, (1 - interp) * a.translation.z + interp * b.translation.z);
+	return c;
+}
+
+void ReduceKeyframes(Skeleton skelly)
+{
+	for (size_t i = 0; i < skelly.mJoints.size(); i++)
+	{
+		int j = 0;
+		while (j < skelly.mJoints[i].mAnimation.size() - 2)
+		{
+			if (skelly.mJoints[i].mAnimation[j + 1] == Interpolate(skelly.mJoints[i].mAnimation[j], skelly.mJoints[i].mAnimation[j + 2], .5f))
+			{
+				skelly.mJoints[i].mAnimation.erase(skelly.mJoints[i].mAnimation.begin() + j + 1);
+			}
+			else
+				j++;
+		}
+	}
+}
+
+//Unfinished code about evaluating cubic curves
+//void EvaluateIndex(double pIndex, FbxScene pScene)
 //{
-//	// Create the FBX SDK manager
-//	FbxManager* lSdkManager = FbxManager::Create();
-//	// Create an IOSettings object.
-//	FbxIOSettings * ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
-//	lSdkManager->SetIOSettings(ios);
-//
-//	// ... Configure the FbxIOSettings object ...
-//
-//	// Create an importer.
-//	FbxImporter* lImporter = FbxImporter::Create(lSdkManager, "");
-//	// Initialize the importer.
-//	bool lImportStatus = lImporter->Initialize(filename, -1, lSdkManager->GetIOSettings());
-//	//If any errors occur in the call to FbxImporter::Initialize(), the method returns false.
-//	//To retrieve the error, you must call GetStatus().GetErrorString() from the FbxImporter object.
-//	if (!lImportStatus) {
-//		printf("Call to FbxImporter::Initialize() failed.\n");
-//		printf("Error returned: %s\n\n", lImporter->GetStatus().GetErrorString());
-//		exit(-1);
-//	}
-//	//Once the importer has been initialized, a scene container must be created to load the scene from the file.
-//	//Scenes in the FBX SDK are abstracted by the FbxScene class.
-//	//Create a new scene so it can be populated by the imported file.
-//	FbxScene* lScene = FbxScene::Create(lSdkManager, "myScene");
-//	//Import the contents of the file into the scene.
-//	lImporter->Import(lScene);
-//	//After the importer has populated the scene, it is safe to destroy it to reduce memory usage.
-//	//The file has been imported; we can get rid of the importer.
-//	lImporter->Destroy();
-//	//The FBX file format version is incremented to reflect newly supported features.
-//	//The FBX version of the currently imported file can be obtained by calling FbxImporter::GetFileVersion().
-//	//File format version numbers to be populated.
-//	int lFileMajor, lFileMinor, lFileRevision;
-//	// Populate the FBX file format version numbers with the import file.
-//	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
-//	
-//	
-//	//When the FBX SDK encounters a new object that it does not recognize during the importing process,
-//	  //it creates a new class for it at runtime.
-//	
-//	  //FbxClassId lShaderClassID = lSdkManager->FindFbxFileClass("Shader", "FlatShader");
-//	//for (int i = 0; i < lNode->GetSrcObjectCount(lShaderClassID); i++) {
-//	//	FbxObject* lObject = lNode->GetSrcObject(lShaderClassID, i);
-//	//}
-//
-//
-//	FbxNode* pFbxRootNode = lScene->GetRootNode();
-//	if (pFbxRootNode)
+//	int IndexLeft = (int)floor(pIndex);
+//	int IndexRight = (int)ceil(pIndex);
+//	FbxAnimCurveKey *KeyLeft = InternalKeyGetPtr(IndexLeft);
+//	FbxAnimCurveKey *KeyRight = InternalKeyGetPtr(IndexRight)
+// case KFCURVE_INTERPOLATION_CUBIC:
 //	{
-//		for (int i = 0; i < pFbxRootNode->GetChildCount(); i++)
+//		if (KeyLeft->GetTangeantWeightMode())
 //		{
-//			FbxNode* pFbxChildNode = pFbxRootNode->GetChild(i);
+//			double lLW;
+//			double lRW;
+//			lLW = KeyGetRightTangeantWeight(IndexLeft);
+//			lRW = KeyGetLeftTangeantWeight(IndexRight);
+//			kFCurveDouble lU = pIndex - IndexLeft;
+//			kFCurveDouble lUWarp = rtsec(CubicWarp, 0.0, 1.0, lU, lLW, lRW);
 //
-//			if (pFbxChildNode->GetNodeAttribute() == NULL)
-//				continue;
+//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
 //
-//			FbxNodeAttribute::EType AttributeType = pFbxChildNode->GetNodeAttribute()->GetAttributeType();
+//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration*lLW;
+//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration*lRW;
 //
-//			if (AttributeType != FbxNodeAttribute::eMesh)
-//				continue;
+//			kFCurveDouble P0 = KeyLeft->GetValue();
+//			kFCurveDouble P3 = KeyRight->GetValue();
+//			kFCurveDouble P1 = P0 + LeftSlope;
+//			kFCurveDouble P2 = P3 - RightSlope;
 //
-//			FbxMesh* pMesh = (FbxMesh*)pFbxChildNode->GetNodeAttribute();
-//			
-//			FbxVector4* pVertices = pMesh->GetControlPoints();
-//			
-//			for (int j = 0; j < pMesh->GetPolygonCount(); j++)
-//			{
-//				int iNumVertices = pMesh->GetPolygonSize(j);
-//				assert(iNumVertices == 3);
+//			kFCurveDouble P01 = lUWarp * P0 + (1.0 - lUWarp) *P1;
+//			kFCurveDouble P12 = lUWarp * P1 + (1.0 - lUWarp) *P2;
+//			kFCurveDouble P23 = lUWarp * P2 + (1.0 - lUWarp) *P3;
+//			kFCurveDouble P012 = lUWarp * P01 + (1.0 - lUWarp) *P12;
+//			kFCurveDouble P123 = lUWarp * P12 + (1.0 - lUWarp) *P23;
+//			kFCurveDouble P0123 = lUWarp * P012 + (1.0 - lUWarp) *P123;
 //
-//				for (int k = 0; k < iNumVertices; k++)
-//				{
-//					int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
-//
-//					DirectX::XMFLOAT4 vertex;
-//					vertex.x = (float)pVertices[iControlPointIndex].mData[0];
-//					vertex.y = (float)pVertices[iControlPointIndex].mData[1];
-//					vertex.z = (float)pVertices[iControlPointIndex].mData[2];
-//					vertex.w = 0.0f;
-//					pOutVertexVector->push_back(vertex);
-//				}
-//			}
+//			return P0123;
 //
 //		}
+//		else
+//		{
 //
+//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
+//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration / 3.0;
+//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration / 3.0;
+//			kFCurveDouble P0 = KeyLeft->GetValue();
+//			kFCurveDouble P3 = KeyRight->GetValue();
+//			kFCurveDouble P01 = P0 + (LeftSlope) *(Index - IndexLeft);
+//			kFCurveDouble P12 = P0 + LeftSlope + (P3 - RightSlope - P0 - LeftSlope) *(Index - IndexLeft);
+//			kFCurveDouble P23 = P3 - RightSlope + (RightSlope) *(Index - IndexLeft);
+//			kFCurveDouble P012 = P01 + (P12 - P01) *(Index - IndexLeft);
+//			kFCurveDouble P123 = P12 + (P23 - P12) *(Index - IndexLeft);
+//			kFCurveDouble P1234 = P012 + (P123 - P012) *(Index - IndexLeft);
+//
+//			return P1234;
+//		}
 //	}
-//	return S_OK;
 //}
+
+void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> verts)
+{
+	std::fstream f;
+	f.open(savefile, std::ios::out | std::ios::binary);
+
+	f.write((char*)&skelly.mAnimationLength, sizeof(skelly.mAnimationLength));
+	int len = skelly.mAnimationName.size() + 1;
+	f.write((char*)&len, sizeof(len));
+	f.write(skelly.mAnimationName.c_str(), len);
+
+	int size = skelly.mJoints.size();
+	f.write((char*)&size, sizeof(size));
+
+	for (size_t i = 0; i < size; i++)
+	{
+		int length = skelly.mJoints[i].mName.size() + 1;
+		f.write((char*)&length, sizeof(length));
+		f.write(skelly.mJoints[i].mName.c_str(), length);
+		f.write((char*)&skelly.mJoints[i].mParentIndex, sizeof(skelly.mJoints[i].mParentIndex));
+		f.write((char*)&skelly.mJoints[i].translation, sizeof(skelly.mJoints[i].translation));
+		f.write((char*)&skelly.mJoints[i].rotation, sizeof(skelly.mJoints[i].rotation));
+		int animsize = skelly.mJoints[i].mAnimation.size();
+		f.write((char*)&animsize, sizeof(animsize));
+		for (size_t j = 0; j < animsize; j++)
+		{
+			f.write((char*)&skelly.mJoints[i].mAnimation[j].mFrameNum, sizeof(skelly.mJoints[i].mAnimation[j].mFrameNum));
+			f.write((char*)&skelly.mJoints[i].mAnimation[j].translation, sizeof(skelly.mJoints[i].mAnimation[j].translation));
+			f.write((char*)&skelly.mJoints[i].mAnimation[j].rotation, sizeof(skelly.mJoints[i].mAnimation[j].rotation));
+		}
+	}
+
+	int vlen = verts.size();
+	f.write((char*)&vlen, sizeof(vlen));
+	for (size_t i = 0; i < vlen; i++)
+	{
+		f.write((char*)&verts[i].mPosition, sizeof(verts[i].mPosition));
+		f.write((char*)&verts[i].mNormal, sizeof(verts[i].mNormal));
+		f.write((char*)&verts[i].mUV, sizeof(verts[i].mUV));
+		int blen = verts[i].mVertexBlendingInfos.size();
+		f.write((char*)&blen, sizeof(blen));
+		for (size_t j = 0; j < blen; j++)
+		{
+			f.write((char*)&verts[i].mVertexBlendingInfos[j].mBlendingIndex, sizeof(verts[i].mVertexBlendingInfos[j].mBlendingIndex));
+			f.write((char*)&verts[i].mVertexBlendingInfos[j].mBlendingWeight, sizeof(verts[i].mVertexBlendingInfos[j].mBlendingWeight));
+		}
+	}
+
+	int ilen = indicies.size();
+	f.write((char*)&ilen, sizeof(ilen));
+	for (size_t i = 0; i < ilen; i++)
+	{
+		f.write((char*)&indicies[i], sizeof(indicies[i]));
+	}
+
+	f.close();
+}
+
+void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = true)
+{
+	if (FILE* output = fopen(savefile, "w"))
+		if (!overwrite)
+		{
+			fclose(output);
+			return;
+		}
+		else
+			fclose(output);
+
+	FbxManager* pManager;
+	FbxScene* pScene;
+	InitializeSdkObjects(pManager, pScene);
+
+	FbxImporter* fbxImporter = FbxImporter::Create(pManager, "myImporter");
+
+	if (!fbxImporter)
+		return;
+
+	if (!fbxImporter->Initialize(loadfile, -1, pManager->GetIOSettings()))
+		return;
+
+	if (!fbxImporter->Import(pScene))
+		return;
+
+	// Destroy the importer.
+	fbxImporter->Destroy();
+
+	Skeleton skelly;
+	ProcessSkeletonHierarchy(pScene->GetRootNode(), skelly);
+
+	//Uncomment if working with files without animations
+	//if (skelly.mJoints.empty())
+	//	mHasAnimation = false;
+
+	std::vector<unsigned int> indicies;
+	std::vector<PNTIWVertex> verts;
+
+	ProcessGeometry(pScene, pScene->GetRootNode(), skelly, indicies, verts);
+	ReduceKeyframes(skelly);
+
+	//Output skelleton, indicies, and verts
+	WriteToBinary(savefile, skelly, indicies, verts);
+
+	DestroySdkObjects(pManager, pScene);
+	return;
+}
+
+bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> verts)
+{
+	std::fstream f;
+	f.open(loadfile, std::ios::in | std::ios::binary);
+	if (!f.good())
+		return false;
+
+	f.read((char*)&skelly.mAnimationLength, sizeof(skelly.mAnimationLength));
+	int len;
+	f.read((char*)&len, sizeof(len));
+	char* temp = new char[len];
+	f.read(temp, len);
+	skelly.mAnimationName = temp;
+	delete[] temp;
+
+	int size;
+	f.read((char*)&size, sizeof(size));
+	skelly.mJoints.resize(size);
+
+	for (size_t i = 0; i < size; i++)
+	{
+		Joint tj;
+		int length;
+		f.read((char*)&length, sizeof(length));
+		temp = new char[length];
+		f.read(temp, length);
+		tj.mName = temp;
+		delete[] temp;
+		f.read((char*)&tj.mParentIndex,		sizeof(tj.mParentIndex));
+		f.read((char*)&tj.translation,		sizeof(tj.translation));
+		f.read((char*)&tj.rotation,			sizeof(tj.rotation));
+		int animsize;
+		f.read((char*)&animsize, sizeof(animsize));
+		tj.mAnimation.resize(animsize);
+		for (size_t j = 0; j < animsize; j++)
+		{
+			Keyframe tk;
+			f.read((char*)&tk.mFrameNum,	sizeof(tk.mFrameNum));
+			f.read((char*)&tk.translation,	sizeof(tk.translation));
+			f.read((char*)&tk.rotation,		sizeof(tk.rotation));
+			tj.mAnimation.push_back(tk);
+		}
+		skelly.mJoints.push_back(tj);
+	}
+
+	int vlen;
+	f.read((char*)&vlen, sizeof(vlen));
+	verts.resize(vlen);
+	for (size_t i = 0; i < vlen; i++)
+	{
+		PNTIWVertex tv;
+		f.read((char*)&tv.mPosition,	sizeof(tv.mPosition));
+		f.read((char*)&tv.mNormal,		sizeof(tv.mNormal));
+		f.read((char*)&tv.mUV,			sizeof(tv.mUV));
+		int blen;
+		f.read((char*)&blen, sizeof(blen));
+		for (size_t j = 0; j < blen; j++)
+		{
+			VertexBlendingInfo tvb;
+			f.read((char*)&tvb.mBlendingIndex,	sizeof(tvb.mBlendingIndex));
+			f.read((char*)&tvb.mBlendingWeight,	sizeof(tvb.mBlendingWeight));
+			tv.mVertexBlendingInfos.push_back(tvb);
+		}
+		verts.push_back(tv);
+	}
+
+	int ilen;
+	f.read((char*)&ilen, sizeof(ilen));
+	indicies.resize(ilen);
+	for (size_t i = 0; i < ilen; i++)
+	{
+		unsigned int t;
+		f.read((char*)&t, sizeof(t));
+		indicies.push_back(t);
+	}
+
+	f.close();
+}
