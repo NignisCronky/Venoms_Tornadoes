@@ -128,12 +128,12 @@ struct Keyframe
 
 	bool operator==(const Keyframe& a) const
 	{
-		return 
-			translation.x == a.translation.x && 
-			translation.y == a.translation.y && 
-			translation.z == a.translation.z && 
+		return
+			translation.x == a.translation.x &&
+			translation.y == a.translation.y &&
+			translation.z == a.translation.z &&
 			rotation.x == a.rotation.x &&
-			rotation.y == a.rotation.y && 
+			rotation.y == a.rotation.y &&
 			rotation.z == a.rotation.z &&
 			rotation.w == a.rotation.w;
 	}
@@ -147,11 +147,12 @@ struct Joint
 	XMFLOAT3 translation;
 	XMFLOAT4 rotation;
 	//XMFLOAT3 scale;
-	std::vector<Keyframe> mAnimation; 
+	std::vector<Keyframe> mAnimation;
 
 	Joint()
 	{
-		translation = rotation = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+		translation = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		rotation = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		mParentIndex = -1;
 	}
 

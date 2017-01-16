@@ -14,11 +14,11 @@ using namespace DirectX;
 
 XMFLOAT3 Vec4ToFloat3(FbxVector4 vec)
 {
-	return XMFLOAT3(vec.mData[0], vec.mData[1], vec.mData[2]);
+	return XMFLOAT3((float)vec.mData[0], (float)vec.mData[1], (float)vec.mData[2]);
 }
 XMFLOAT4 Vec4ToFloat4(FbxVector4 vec)
 {
-	return XMFLOAT4(vec.mData[0], vec.mData[1], vec.mData[2], vec.mData[3]);
+	return XMFLOAT4((float)vec.mData[0], (float)vec.mData[1], (float)vec.mData[2], (float)vec.mData[3]);
 }
 
 static XMMATRIX ToXm(const FbxAMatrix& pSrc)
@@ -75,7 +75,7 @@ void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myInd
 	}
 	for (int i = 0; i < inNode->GetChildCount(); i++)
 	{
-		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, mSkeleton.mJoints.size(), myIndex, mSkeleton);
+		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, (int)mSkeleton.mJoints.size(), myIndex, mSkeleton);
 	}
 }
 
@@ -167,7 +167,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 			{
 				VertexBlendingInfo currBlendingIndexWeightPair;
 				currBlendingIndexWeightPair.mBlendingIndex = currJointIndex;
-				currBlendingIndexWeightPair.mBlendingWeight = currCluster->GetControlPointWeights()[i];
+				currBlendingIndexWeightPair.mBlendingWeight = (float)currCluster->GetControlPointWeights()[i];
 				mControlPoints[currCluster->GetControlPointIndices()[i]]->mBlendingInfo.push_back(currBlendingIndexWeightPair);
 			}
 
@@ -206,7 +206,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 	currBlendingIndexWeightPair.mBlendingWeight = 0;
 	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
 	{
-		for (unsigned int i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
+		for (size_t i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
 		{
 			itr->second->mBlendingInfo.push_back(currBlendingIndexWeightPair);
 		}
@@ -337,8 +337,8 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vecto
 	for (unsigned int i = 0; i < mTriangleCount; ++i)
 	{
 		XMFLOAT3 normal[3];
-		XMFLOAT3 tangent[3];
-		XMFLOAT3 binormal[3];
+		//XMFLOAT3 tangent[3];
+		//XMFLOAT3 binormal[3];
 		XMFLOAT2 UV[3][2];
 
 		for (unsigned int j = 0; j < 3; ++j)
@@ -438,22 +438,22 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 	f.open(savefile, std::ios::out | std::ios::binary);
 
 	f.write((char*)&skelly.mAnimationLength, sizeof(skelly.mAnimationLength));
-	int len = skelly.mAnimationName.size() + 1;
+	int len = (int)skelly.mAnimationName.size() + 1;
 	f.write((char*)&len, sizeof(len));
 	f.write(skelly.mAnimationName.c_str(), len);
 
-	int size = skelly.mJoints.size();
+	int size = (int)skelly.mJoints.size();
 	f.write((char*)&size, sizeof(size));
 
 	for (size_t i = 0; i < size; i++)
 	{
-		int length = skelly.mJoints[i].mName.size() + 1;
+		int length = (int)skelly.mJoints[i].mName.size() + 1;
 		f.write((char*)&length, sizeof(length));
 		f.write(skelly.mJoints[i].mName.c_str(), length);
 		f.write((char*)&skelly.mJoints[i].mParentIndex, sizeof(skelly.mJoints[i].mParentIndex));
 		f.write((char*)&skelly.mJoints[i].translation, sizeof(skelly.mJoints[i].translation));
 		f.write((char*)&skelly.mJoints[i].rotation, sizeof(skelly.mJoints[i].rotation));
-		int animsize = skelly.mJoints[i].mAnimation.size();
+		int animsize = (int)skelly.mJoints[i].mAnimation.size();
 		f.write((char*)&animsize, sizeof(animsize));
 		for (size_t j = 0; j < animsize; j++)
 		{
@@ -463,14 +463,14 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		}
 	}
 
-	int vlen = verts.size();
+	int vlen = (int)verts.size();
 	f.write((char*)&vlen, sizeof(vlen));
 	for (size_t i = 0; i < vlen; i++)
 	{
 		f.write((char*)&verts[i].mPosition, sizeof(verts[i].mPosition));
 		f.write((char*)&verts[i].mNormal, sizeof(verts[i].mNormal));
 		f.write((char*)&verts[i].mUV, sizeof(verts[i].mUV));
-		int blen = verts[i].mVertexBlendingInfos.size();
+		int blen = (int)verts[i].mVertexBlendingInfos.size();
 		f.write((char*)&blen, sizeof(blen));
 		for (size_t j = 0; j < blen; j++)
 		{
@@ -479,7 +479,7 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		}
 	}
 
-	int ilen = indicies.size();
+	int ilen = (int)indicies.size();
 	f.write((char*)&ilen, sizeof(ilen));
 	for (size_t i = 0; i < ilen; i++)
 	{
@@ -491,14 +491,13 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 
 void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = true)
 {
-	if (FILE* output = fopen(savefile, "w"))
-		if (!overwrite)
-		{
-			fclose(output);
-			return;
-		}
-		else
-			fclose(output);
+	std::ifstream f(savefile);
+	if (!overwrite && f.good())
+	{
+		f.close();
+		return;
+	}
+	f.close();
 
 	FbxManager* pManager;
 	FbxScene* pScene;
@@ -566,18 +565,18 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 		f.read(temp, length);
 		tj.mName = temp;
 		delete[] temp;
-		f.read((char*)&tj.mParentIndex,		sizeof(tj.mParentIndex));
-		f.read((char*)&tj.translation,		sizeof(tj.translation));
-		f.read((char*)&tj.rotation,			sizeof(tj.rotation));
+		f.read((char*)&tj.mParentIndex, sizeof(tj.mParentIndex));
+		f.read((char*)&tj.translation, sizeof(tj.translation));
+		f.read((char*)&tj.rotation, sizeof(tj.rotation));
 		int animsize;
 		f.read((char*)&animsize, sizeof(animsize));
 		tj.mAnimation.resize(animsize);
 		for (size_t j = 0; j < animsize; j++)
 		{
 			Keyframe tk;
-			f.read((char*)&tk.mFrameNum,	sizeof(tk.mFrameNum));
-			f.read((char*)&tk.translation,	sizeof(tk.translation));
-			f.read((char*)&tk.rotation,		sizeof(tk.rotation));
+			f.read((char*)&tk.mFrameNum, sizeof(tk.mFrameNum));
+			f.read((char*)&tk.translation, sizeof(tk.translation));
+			f.read((char*)&tk.rotation, sizeof(tk.rotation));
 			tj.mAnimation.push_back(tk);
 		}
 		skelly.mJoints.push_back(tj);
@@ -589,16 +588,16 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 	for (size_t i = 0; i < vlen; i++)
 	{
 		PNTIWVertex tv;
-		f.read((char*)&tv.mPosition,	sizeof(tv.mPosition));
-		f.read((char*)&tv.mNormal,		sizeof(tv.mNormal));
-		f.read((char*)&tv.mUV,			sizeof(tv.mUV));
+		f.read((char*)&tv.mPosition, sizeof(tv.mPosition));
+		f.read((char*)&tv.mNormal, sizeof(tv.mNormal));
+		f.read((char*)&tv.mUV, sizeof(tv.mUV));
 		int blen;
 		f.read((char*)&blen, sizeof(blen));
 		for (size_t j = 0; j < blen; j++)
 		{
 			VertexBlendingInfo tvb;
-			f.read((char*)&tvb.mBlendingIndex,	sizeof(tvb.mBlendingIndex));
-			f.read((char*)&tvb.mBlendingWeight,	sizeof(tvb.mBlendingWeight));
+			f.read((char*)&tvb.mBlendingIndex, sizeof(tvb.mBlendingIndex));
+			f.read((char*)&tvb.mBlendingWeight, sizeof(tvb.mBlendingWeight));
 			tv.mVertexBlendingInfos.push_back(tvb);
 		}
 		verts.push_back(tv);
@@ -615,4 +614,5 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 	}
 
 	f.close();
+	return true;
 }
