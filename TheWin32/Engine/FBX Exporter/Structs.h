@@ -128,12 +128,12 @@ struct Keyframe
 
 	bool operator==(const Keyframe& a) const
 	{
-		return 
-			translation.x == a.translation.x && 
-			translation.y == a.translation.y && 
-			translation.z == a.translation.z && 
+		return
+			translation.x == a.translation.x &&
+			translation.y == a.translation.y &&
+			translation.z == a.translation.z &&
 			rotation.x == a.rotation.x &&
-			rotation.y == a.rotation.y && 
+			rotation.y == a.rotation.y &&
 			rotation.z == a.rotation.z;
 	}
 };
@@ -146,7 +146,7 @@ struct Joint
 	XMFLOAT3 translation;
 	XMFLOAT3 rotation;
 	//XMFLOAT3 scale;
-	std::vector<Keyframe> mAnimation; 
+	std::vector<Keyframe> mAnimation;
 
 	Joint()
 	{
@@ -165,6 +165,48 @@ struct Skeleton
 	long long mAnimationLength;
 	std::string mAnimationName;
 };
+
+
+
+struct BoneContainer
+{
+	unsigned NumOFBones;
+	std::vector<XMFLOAT4X4> Bones;
+	BoneContainer();
+	BoneContainer(unsigned n, std::vector<XMFLOAT4X4> B)
+	{
+		NumOFBones = n;
+		Bones = B;
+	}
+};
+
+
+// model matrix, view matrix, projection, light diretion, light color, matrix offset
+struct MVPDCB
+{
+	XMFLOAT4X4 World;
+	XMFLOAT4X4 View;
+	XMFLOAT4X4 Pro;
+	XMFLOAT4 LightDirection;
+	XMFLOAT4 LightColor;
+	std::vector<XMFLOAT4X4> Boneoffsets;
+
+	void UpdateDir(XMFLOAT4 LightDirection_)
+	{
+		LightDirection = LightDirection_;
+	}
+	void UpdateColor(XMFLOAT4 LightColor_)
+	{
+		LightColor = LightColor_;
+	}
+	void UpdateView(XMFLOAT4X4 View_)
+	{
+		View = View_;
+	}
+
+};
+
+
 
 //struct Triangle
 //{
