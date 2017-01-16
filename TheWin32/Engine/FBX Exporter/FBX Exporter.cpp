@@ -16,6 +16,10 @@ XMFLOAT3 Vec4ToFloat3(FbxVector4 vec)
 {
 	return XMFLOAT3(vec.mData[0], vec.mData[1], vec.mData[2]);
 }
+XMFLOAT4 Vec4ToFloat4(FbxVector4 vec)
+{
+	return XMFLOAT4(vec.mData[0], vec.mData[1], vec.mData[2], vec.mData[3]);
+}
 
 static XMMATRIX ToXm(const FbxAMatrix& pSrc)
 {
@@ -154,7 +158,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 
 			// Update the information in mSkeleton 
 			mSkeleton.mJoints[currJointIndex].translation = Vec4ToFloat3(globalBindposeInverseMatrix.GetT());
-			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat3(globalBindposeInverseMatrix.GetR());
+			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat4(globalBindposeInverseMatrix.GetR());
 			//mSkeleton.mJoints[currJointIndex].scale = Vec4ToFloat3(globalBindposeInverseMatrix.GetS());
 
 			// Associate each joint with the control points it affects
@@ -186,7 +190,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 				FbxAMatrix currentTransformOffset = inNode->EvaluateGlobalTransform(currTime) * geometryTransform;
 				FbxAMatrix mGlobalTransform = currentTransformOffset.Inverse() * currCluster->GetLink()->EvaluateGlobalTransform(currTime);
 				currAnim.translation = Vec4ToFloat3(mGlobalTransform.GetT());
-				currAnim.rotation = Vec4ToFloat3(mGlobalTransform.GetR());
+				currAnim.rotation = Vec4ToFloat4(mGlobalTransform.GetR());
 				//currAnim.scale = Vec4ToFloat3(mGlobalTransform.GetS());
 				mSkeleton.mJoints[currJointIndex].mAnimation.push_back(currAnim);
 			}
@@ -205,103 +209,6 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 		for (unsigned int i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
 		{
 			itr->second->mBlendingInfo.push_back(currBlendingIndexWeightPair);
-		}
-	}
-}
-
-
-//Loads key frames, but is a pain in the ass to program animations with
-//Only going to use if I have to
-void LoadNodeKeyframeAnimation(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton)
-{
-	// Iterate all animations (for example, walking, running, falling and etc.)
-	int numAnimations = pScene->GetSrcObjectCount(FbxCriteria::ObjectType(FbxAnimStack::ClassId));
-	for (int animationIndex = 0; animationIndex < numAnimations; animationIndex++)
-	{
-		FbxAnimStack *animStack = (FbxAnimStack*)pScene->GetSrcObject(FbxCriteria::ObjectType(FbxAnimStack::ClassId), animationIndex);
-		FbxAnimEvaluator *animEvaluator = pScene->GetAnimationEvaluator();
-		animStack->GetName(); // Get the name of the animation if needed
-
-							  // Iterate all the transformation layers of the animation. You can have several layers, for example one for translation, one for rotation, one for scaling and each can have keys at different frame numbers.
-		int numLayers = animStack->GetMemberCount();
-		for (int layerIndex = 0; layerIndex < numLayers; layerIndex++)
-		{
-			FbxAnimLayer *animLayer = (FbxAnimLayer*)animStack->GetMember(layerIndex);
-			animLayer->GetName(); // Get the layer's name if needed
-
-			FbxAnimCurve *translationCurve = inNode->LclTranslation.GetCurve(animLayer);
-			FbxAnimCurve *rotationCurve = inNode->LclRotation.GetCurve(animLayer);
-			FbxAnimCurve *scalingCurve = inNode->LclScaling.GetCurve(animLayer);
-
-			if (scalingCurve != 0)
-			{
-				int numKeys = scalingCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = scalingCurve->KeyGetTime(keyIndex);
-					FbxDouble3 scalingVector = inNode->EvaluateLocalScaling(frameTime);
-					float x = (float)scalingVector[0];
-					float y = (float)scalingVector[1];
-					float z = (float)scalingVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 scalingVector = inNode->LclScaling.Get();
-				float x = (float)scalingVector[0];
-				float y = (float)scalingVector[1];
-				float z = (float)scalingVector[2];
-			}
-
-			if (rotationCurve != 0)
-			{
-				int numKeys = rotationCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = rotationCurve->KeyGetTime(keyIndex);
-					FbxDouble3 rotationVector = inNode->EvaluateLocalRotation(frameTime);
-					float x = (float)rotationVector[0];
-					float y = (float)rotationVector[1];
-					float z = (float)rotationVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 rotationVector = inNode->LclRotation.Get();
-				float x = (float)rotationVector[0];
-				float y = (float)rotationVector[1];
-				float z = (float)rotationVector[2];
-			}
-
-
-			if (translationCurve != 0)
-			{
-				int numKeys = translationCurve->KeyGetCount();
-				for (int keyIndex = 0; keyIndex < numKeys; keyIndex++)
-				{
-					FbxTime frameTime = translationCurve->KeyGetTime(keyIndex);
-					FbxDouble3 translationVector = inNode->EvaluateLocalTranslation(frameTime);
-					float x = (float)translationVector[0];
-					float y = (float)translationVector[1];
-					float z = (float)translationVector[2];
-
-					float frameSeconds = (float)frameTime.GetSecondDouble(); // If needed, get the time of the scaling keyframe, in seconds
-				}
-			}
-			else
-			{
-				// If this animation layer has no scaling curve, then use the default one, if needed
-				FbxDouble3 translationVector = inNode->LclTranslation.Get();
-				float x = (float)translationVector[0];
-				float y = (float)translationVector[1];
-				float z = (float)translationVector[2];
-			}
 		}
 	}
 }
@@ -503,7 +410,7 @@ void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton, std
 Keyframe Interpolate(Keyframe a, Keyframe b, float interp)
 {
 	Keyframe c;
-	c.rotation = XMFLOAT3((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z);
+	c.rotation = XMFLOAT4((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z, (1 - interp) * a.rotation.w + interp * b.rotation.w);
 	c.translation = XMFLOAT3((1 - interp) * a.translation.x + interp * b.translation.x, (1 - interp) * a.translation.y + interp * b.translation.y, (1 - interp) * a.translation.z + interp * b.translation.z);
 	return c;
 }
@@ -524,64 +431,6 @@ void ReduceKeyframes(Skeleton skelly)
 		}
 	}
 }
-
-//Unfinished code about evaluating cubic curves
-//void EvaluateIndex(double pIndex, FbxScene pScene)
-//{
-//	int IndexLeft = (int)floor(pIndex);
-//	int IndexRight = (int)ceil(pIndex);
-//	FbxAnimCurveKey *KeyLeft = InternalKeyGetPtr(IndexLeft);
-//	FbxAnimCurveKey *KeyRight = InternalKeyGetPtr(IndexRight)
-// case KFCURVE_INTERPOLATION_CUBIC:
-//	{
-//		if (KeyLeft->GetTangeantWeightMode())
-//		{
-//			double lLW;
-//			double lRW;
-//			lLW = KeyGetRightTangeantWeight(IndexLeft);
-//			lRW = KeyGetLeftTangeantWeight(IndexRight);
-//			kFCurveDouble lU = pIndex - IndexLeft;
-//			kFCurveDouble lUWarp = rtsec(CubicWarp, 0.0, 1.0, lU, lLW, lRW);
-//
-//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
-//
-//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration*lLW;
-//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration*lRW;
-//
-//			kFCurveDouble P0 = KeyLeft->GetValue();
-//			kFCurveDouble P3 = KeyRight->GetValue();
-//			kFCurveDouble P1 = P0 + LeftSlope;
-//			kFCurveDouble P2 = P3 - RightSlope;
-//
-//			kFCurveDouble P01 = lUWarp * P0 + (1.0 - lUWarp) *P1;
-//			kFCurveDouble P12 = lUWarp * P1 + (1.0 - lUWarp) *P2;
-//			kFCurveDouble P23 = lUWarp * P2 + (1.0 - lUWarp) *P3;
-//			kFCurveDouble P012 = lUWarp * P01 + (1.0 - lUWarp) *P12;
-//			kFCurveDouble P123 = lUWarp * P12 + (1.0 - lUWarp) *P23;
-//			kFCurveDouble P0123 = lUWarp * P012 + (1.0 - lUWarp) *P123;
-//
-//			return P0123;
-//
-//		}
-//		else
-//		{
-//
-//			kFCurveDouble Duration = (KeyRight->GetTime() - KeyLeft->GetTime()).GetSecondDouble();
-//			kFCurveDouble RightSlope = KeyGetLeftDerivative(IndexRight) *Duration / 3.0;
-//			kFCurveDouble LeftSlope = KeyGetRightDerivative(IndexLeft) *Duration / 3.0;
-//			kFCurveDouble P0 = KeyLeft->GetValue();
-//			kFCurveDouble P3 = KeyRight->GetValue();
-//			kFCurveDouble P01 = P0 + (LeftSlope) *(Index - IndexLeft);
-//			kFCurveDouble P12 = P0 + LeftSlope + (P3 - RightSlope - P0 - LeftSlope) *(Index - IndexLeft);
-//			kFCurveDouble P23 = P3 - RightSlope + (RightSlope) *(Index - IndexLeft);
-//			kFCurveDouble P012 = P01 + (P12 - P01) *(Index - IndexLeft);
-//			kFCurveDouble P123 = P12 + (P23 - P12) *(Index - IndexLeft);
-//			kFCurveDouble P1234 = P012 + (P123 - P012) *(Index - IndexLeft);
-//
-//			return P1234;
-//		}
-//	}
-//}
 
 void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> verts)
 {
