@@ -55,12 +55,7 @@ struct Vec4
 DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
 DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
 DirectX::XMFLOAT4X4 _WorldMatrix;				//world matrix
-struct Pro_View_World
-{
-	XMFLOAT4X4 World;
-	XMFLOAT4X4 Pro;
-	XMFLOAT4X4 View;
-};
+
 
 enum ShadingMode
 {
@@ -299,7 +294,7 @@ void DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
 	DrawBones(Sphere_, ver1);
 	DrawBones(Sphere_, ver2);
 	DrawBones(Sphere_, ver3);
-
+	//
 }
 
 
@@ -420,7 +415,7 @@ void RenderFrame(bool wireframe, std::vector<MyMesh> vec, std::vector<Bone> bone
 	Devicecon->DrawIndexed(6, 0, 0);
 	/////
 	AnimateVector(wireframe, vec);
-	//todo: add spehre
+	// add spehre
 	DrawSpheresForbones(bones, spehre_);
 	///////////////////////////////////////////////////////////////////
 	// switch the back buffer and the front buffer
@@ -477,14 +472,11 @@ void InitGraphics()
 
 	//////////////////////////////////////////////
 	ZeroMemory(&ConstantBuffer, sizeof(ConstantBuffer));
-
 	ConstantBuffer.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
 	ConstantBuffer.ByteWidth = sizeof(Pro_View_World);             // size is pro_view_world
 	ConstantBuffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;       // use as a vertex buffer
 	ConstantBuffer.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
-
 	Device->CreateBuffer(&ConstantBuffer, NULL, &_ConstantBuffer);       // create the buffer
-
 	Devicecon->Map(_ConstantBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ConsREsorce);    // map the buffer
 	memcpy(ConsREsorce.pData, &MAtrices, sizeof(Pro_View_World));      // copy the data
 	Devicecon->Unmap(_ConstantBuffer, NULL);                                      // unmap the buffer

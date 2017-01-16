@@ -61,6 +61,15 @@
     <FxCompile Include="NormalVertexShader.hlsl">
       <Filter>Shadder</Filter>
     </FxCompile>
+    <FxCompile Include="_LightShader.hlsl">
+      <Filter>Shadder</Filter>
+    </FxCompile>
+    <FxCompile Include="_PixShader.hlsl">
+      <Filter>Shadder</Filter>
+    </FxCompile>
+    <FxCompile Include="_VertShader.hlsl">
+      <Filter>Shadder</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Engine.rc">
