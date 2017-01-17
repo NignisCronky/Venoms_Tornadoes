@@ -18,7 +18,8 @@ void Render::Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Co
 
 	this->Update(Matricies, Context);
 	this->Set(Context);
-	Context->DrawIndexed((unsigned)this->m_VertIndexContainer.size(), 0, 0);
+	//Context->DrawIndexed((unsigned)this->m_VertIndexContainer.size(), 0, 0);
+	Context->Draw(m_VertIndexContainer.size(), 0);
 }
 
 Render::Render()
@@ -26,11 +27,11 @@ Render::Render()
 
 }
 
-Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
+Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
 {
 	//Use this shit before you draw
-	ID3D11ShaderResourceView* texViews[] = { shaderResourceView };
-	Context->PSSetShaderResources(0, 1, texViews);
+	texViews = { shaderResourceView };
+	
 
 
 
@@ -119,21 +120,7 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 	
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
-	//Create ConstantBuffer for Texture
-	/*if(texture !=nullptr)
-	{
-		D3D11_BUFFER_DESC _Text;
-		D3D11_MAPPED_SUBRESOURCE _Resourse;
-		ZeroMemory(&_Text, sizeof(_Text));
-		_Text.Usage = D3D11_USAGE_DYNAMIC;
-		_Text.ByteWidth = sizeof(texture);
-		_Text.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		_Text.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		Device->CreateBuffer(&_Text, NULL, &this->m_Texture);
-		Context->Map(m_Texture, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &_Resourse);
-		memcpy(_Resourse.pData, &texture, sizeof(texture));
-		Context->Unmap(m_Texture, NULL);
-	}*/
+	
 }
 
 
@@ -160,6 +147,8 @@ void Render::Create()
 
 void Render::Set(ID3D11DeviceContext * Context)
 {
+	
+	Context->PSSetShaderResources(0, 1, &texViews);
 	Context->IASetIndexBuffer(m_VertIndex, DXGI_FORMAT_R32_UINT, 0);
 	Context->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)_Primative);
 	Context->IASetInputLayout(m_InputLayout);
@@ -170,8 +159,6 @@ void Render::Set(ID3D11DeviceContext * Context)
 		Context->RSSetState(m_WireFrame);
 	else
 		Context->RSSetState(m_SolidFill);
-	if (m_Texture != nullptr)
-		Context->PSSetConstantBuffers(0, 0, &m_Texture);
 
 
 }

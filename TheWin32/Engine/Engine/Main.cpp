@@ -87,7 +87,7 @@ void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
 }
 
 #pragma region HelperFunctions
-void SetUpMatrices(Pro_View_World pvw)
+void SetUpMatrices(Pro_View_World& pvw)
 {
 	float aspectRatio = WIDTH_P / HEIGHT_P;
 	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
@@ -99,7 +99,7 @@ void SetUpMatrices(Pro_View_World pvw)
 	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
 
 	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
-	DirectX::XMStoreFloat4x4(&_ViewMatrix, perspectiveMatrix);
+	DirectX::XMStoreFloat4x4(&pvw.View, perspectiveMatrix);
 
 	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
 }
@@ -179,11 +179,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		std::vector<PNTIWVertex> verts;
 		ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
 		ID3D11Texture2D *k;
-		CreateDDSTextureFromFile(Device, L"", (ID3D11Resource**)&k, &shaderResourceView);
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
 		swapchain->Present(0, 0);
-		Render Bear(shaderResourceView,PVW , indicies,skelly.mJoints,verts ,Devicecon ,Device);
+		CreateDDSTextureFromFile(Device, L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds", (ID3D11Resource**)&k, &shaderResourceView);
+		Render Bear(shaderResourceView, PVW, indicies, skelly.mJoints,verts, Devicecon, Device);
 		
 
 
@@ -208,11 +208,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			{
 				//game code goes here
 			}
-
+			FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
+			Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
 			Bear.Draw(backbuffer, Devicecon, PVW);
 			swapchain->Present(0, 0);
 		}
-		//this is where we clean 3d
+		Bear.Release();
 		return (int)msg.wParam;
 	}
 }

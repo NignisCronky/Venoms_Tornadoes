@@ -18,7 +18,7 @@ class Render
 
 	ID3D11VertexShader *m_VertexShader = nullptr;
 	ID3D11PixelShader *m_PixelShader = nullptr;
-
+	ID3D11SamplerState* SamplerState;
 	unsigned _Primative = 0;
 	DirectX::XMFLOAT4X4 m_WorldMatrix;
 
@@ -26,7 +26,7 @@ class Render
 
 	ID3D11DeviceContext *m_Context;
 	ID3D11Device *m_Device;
-
+	ID3D11ShaderResourceView* texViews;
 	std::vector<unsigned> m_VertIndexContainer;
 	BoneContainer m_BonesContainer;
 	std::vector<PNTIWVertex> VertexsContainer;
@@ -40,7 +40,7 @@ public:
 
 	Render();
 
-	Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
+	Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
 
 	~Render();
 
