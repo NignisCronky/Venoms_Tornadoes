@@ -1,70 +1,44 @@
-#include "Render.h"
+#include "Triangle.h"
 
-Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
+Triangle::Triangle(ID3D11DeviceContext * Context, ID3D11Device * Device)
 {
-	//Use this shit before you draw
-	texViews = { shaderResourceView };
+	verts[0] = XMFLOAT4(.5f, .5f, .5f, 1.0f);
+	verts[1] = XMFLOAT4(-.5f, -.5f, .5f, 1.0f);
+	verts[2] = XMFLOAT4(-.5f, .5f, .5f, 1.0f);
 
-
-
-
-
-	Frame = 0;
-	// Grabs the view, and projection Passed in
-	// sets the world matrix to idenity
-	// this->ConstantBufferInfo.View = Matricies.View;
 	DirectX::XMStoreFloat4x4(&this->ConstantBufferInfo.World, DirectX::XMMatrixIdentity());
-	this->ConstantBufferInfo.View = Matricies.View;
+	//this->ConstantBufferInfo.View = Matricies.View;
 	this->ConstantBufferInfo.LightColor = DirectX::XMFLOAT4(0.4f, 0.1f, 0.8f, 1.0f);
 	this->ConstantBufferInfo.LightDirection = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-	this->CalcBoneOffSets(Bones, this->ConstantBufferInfo.Boneoffsets);
+	//this->CalcBoneOffSets(Bones, this->ConstantBufferInfo.Boneoffsets);
 	DirectX::XMStoreFloat4x4(&this->m_WorldMatrix, DirectX::XMMatrixIdentity());
 
 	// creates and sets the vertex shader
-	Device->CreateVertexShader(&_VertShader, sizeof(_VertShader), NULL, &m_VertexShader);
-	Device->CreatePixelShader(&_PixShader, sizeof(_PixShader), NULL, &m_PixelShader);
+	Device->CreateVertexShader(&Vshader, sizeof(Vshader), NULL, &m_VertexShader);
+	Device->CreatePixelShader(&Pshader, sizeof(Pshader), NULL, &m_PixelShader);
 	Context->VSSetShader(m_VertexShader, 0, 0);
 	Context->PSSetShader(m_PixelShader, 0, 0);
-
-
 
 	// creates input layout 
 	D3D11_INPUT_ELEMENT_DESC INPUT_DESC[] =
 	{
-		{ "POSITION",		0, DXGI_FORMAT_R32G32B32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",			0, DXGI_FORMAT_R32G32B32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UV",				0, DXGI_FORMAT_R32G32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDWEIGHT",	0, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDINDICE",	0, DXGI_FORMAT_R32G32B32A32_UINT,	0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "POSITION",		0, DXGI_FORMAT_R32G32B32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
 
 
-	HRESULT error = Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
+	HRESULT error = Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &Vshader, sizeof(Vshader), &m_InputLayout);
 
 
 	// Creates vertex buffer
 	D3D11_BUFFER_DESC VertBuffDesc;
 	ZeroMemory(&VertBuffDesc, sizeof(VertBuffDesc));
 	VertBuffDesc.Usage = D3D11_USAGE_DYNAMIC;
-	VertBuffDesc.ByteWidth = sizeof(PNTIWVertex) * Vertexs.size();
+	VertBuffDesc.ByteWidth = sizeof(XMFLOAT4) * 3;
 	VertBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	VertBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	D3D11_SUBRESOURCE_DATA data;
-	data.pSysMem = &Vertexs[0];
-	Device->CreateBuffer(&VertBuffDesc, &data, &m_Vertexs);
-	m_VertIndexContainer = VertIndex;
-
-
-
-	//Creates Index buffer for verts
-	D3D11_BUFFER_DESC IndexBuffDesc;
-	ZeroMemory(&IndexBuffDesc, sizeof(IndexBuffDesc));
-	IndexBuffDesc.Usage = D3D11_USAGE_DYNAMIC;
-	IndexBuffDesc.ByteWidth = sizeof(unsigned) * (unsigned)VertIndex.size();
-	IndexBuffDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	IndexBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	data.pSysMem = &VertIndex[0];
-	Device->CreateBuffer(&IndexBuffDesc, &data, &this->m_VertIndex);
+	data.pSysMem = &verts[0];
+	Device->CreateBuffer(&VertBuffDesc, &data, &this->m_Vertexs);
 
 	//create constant buffer
 	D3D11_BUFFER_DESC _Constant;
@@ -84,28 +58,26 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 	ZeroMemory(&_RasterDesc, sizeof(_RasterDesc));
 	_RasterDesc.CullMode = D3D11_CULL_NONE;
 	_RasterDesc.FillMode = D3D11_FILL_WIREFRAME;
-	_RasterDesc.DepthClipEnable = true;
 	Device->CreateRasterizerState(&_RasterDesc, &this->m_WireFrame);
 	//solid fill
 	ZeroMemory(&_RasterDesc, sizeof(_RasterDesc));
 	_RasterDesc.CullMode = D3D11_CULL_NONE;
-	_RasterDesc.FillMode = D3D11_FILL_SOLID;
-	_RasterDesc.DepthClipEnable = true;
+	_RasterDesc.FillMode = D3D11_FILL_WIREFRAME;
 	Device->CreateRasterizerState(&_RasterDesc, &m_SolidFill);
 
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 }
 
-Render::~Render()
+Triangle::~Triangle()
 {
 
 }
 
-void Render::Set(ID3D11DeviceContext * Context)
+void Triangle::Set(ID3D11DeviceContext * Context)
 {
-	Context->PSSetShaderResources(0, 1, &texViews);
-	Context->IASetIndexBuffer(m_VertIndex, DXGI_FORMAT_R32_UINT, 0);
-	UINT stride = sizeof(PNTIWVertex);
+	//Context->PSSetShaderResources(0, 1, &texViews);
+	//Context->IASetIndexBuffer(m_VertIndex, DXGI_FORMAT_R32_UINT, 0);
+	UINT stride = sizeof(XMFLOAT4);
 	UINT offset = 0;
 	Context->IASetVertexBuffers(0, 1, &m_Vertexs, &stride, &offset);
 	Context->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)_Primative);
@@ -119,7 +91,7 @@ void Render::Set(ID3D11DeviceContext * Context)
 		Context->RSSetState(m_SolidFill);
 }
 
-void Render::Update(Pro_View_World Matricies, ID3D11DeviceContext * Context)
+void Triangle::Update(Pro_View_World Matricies, ID3D11DeviceContext * Context)
 {
 	this->ConstantBufferInfo.View = Matricies.View;
 	this->ConstantBufferInfo.Pro = Matricies.Pro;
@@ -132,16 +104,16 @@ void Render::Update(Pro_View_World Matricies, ID3D11DeviceContext * Context)
 	Context->Unmap(m_ConstantBuffer, NULL);
 }
 
-void Render::Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Context, Pro_View_World Matricies)
+void Triangle::Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Context, Pro_View_World Matricies)
 {//ID3D11DeviceContext * Context, ID3D11Device * Device
 
 	this->Update(Matricies, Context);
 	this->Set(Context);
 	//Context->DrawIndexed((unsigned)this->m_VertIndexContainer.size(), 0, 0);
-	Context->DrawIndexed(84, 0, 0);
+	Context->Draw(3, 0);
 }
 
-void Render::Release()
+void Triangle::Release()
 {
 	m_ConstantBuffer->Release();
 	m_InputLayout->Release();

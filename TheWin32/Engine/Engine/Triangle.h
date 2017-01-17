@@ -1,7 +1,7 @@
 #pragma once
 #include "Globals.h"
 
-class Render
+class Triangle
 {
 	bool m_IsWireFrammed = false;
 
@@ -33,44 +33,20 @@ class Render
 	unsigned Frame;
 	MVPDCB ConstantBufferInfo;
 
+	XMFLOAT4 verts[3];
+
 public:
 	void Update(Pro_View_World Matricies, ID3D11DeviceContext * Context);
 
 	void Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Context, Pro_View_World Matricies);
 
-	Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
+	Triangle(ID3D11DeviceContext *Context, ID3D11Device *Device);
 
-	~Render();
-
-	void CalcBoneOffSets(std::vector<Joint> Bones, XMFLOAT4X4* boneoffsets)
-	{
-		// for each bone, create a matrix and push it onto the vector
-		for (unsigned i = 0; i < (unsigned)Bones.size(); i++)
-		{
-			if (Bones[i].mAnimation.size()== 0)
-			{
-				XMFLOAT4X4 T;
-				XMStoreFloat4x4(&T, DirectX::XMMatrixIdentity());
-				boneoffsets[i] = T;
-			}
-			else
-			{
-				XMMATRIX M = XMLoadFloat4x4(&Bones[i].globalBindposeInverseMatrix);
-				XMMATRIX C = XMLoadFloat4x4(&Bones[i].mAnimation[Frame].mGlobalTransform);
-				XMMATRIX Temp = XMMatrixMultiply(M, C);
-				XMFLOAT4X4 T;
-				XMStoreFloat4x4(&T, Temp);
-				boneoffsets[i] = T;
-			}
-		}
-	}
-
+	~Triangle();
 	void Release();
-	
 	void Set(ID3D11DeviceContext * Context);
-	
 	inline void ToggleWireFram(ID3D11DeviceContext * devContext) {
 		m_IsWireFrammed = !m_IsWireFrammed;
-	}
+	};
 };
 

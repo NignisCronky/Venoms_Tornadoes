@@ -8,6 +8,7 @@ ID3D11Device* Device;
 ID3D11DeviceContext* Devicecon;
 ID3D11RenderTargetView* backbuffer;
 ID3D11ShaderResourceView* shaderResourceView;
+ID3D11DepthStencilView * DepthStencilView;
 
 Pro_View_World PVW;
 
@@ -99,13 +100,11 @@ void SetUpMatrices(Pro_View_World& pvw)
 	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 100.0f);
 	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
 
-	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,-500.0f);
+	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,8.0f);
 	DirectX::XMStoreFloat4x4(&pvw.View, XMMatrixInverse(nullptr,perspectiveMatrix));
 
 	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
 }
-
-
 
 void InitD3D(HWND hWnd)
 {
@@ -120,16 +119,16 @@ void InitD3D(HWND hWnd)
 	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;     // use 32-bit color
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;      // how swap chain is to be used
 	scd.OutputWindow = hWnd;                                // the window to be used
-	//fullscreen/resolution settings
+															//fullscreen/resolution settings
 	scd.BufferDesc.Width = WIDTH_P;
 	scd.BufferDesc.Height = HEIGHT_P;
 
 
-	scd.SampleDesc.Count = 4;                               // how many multisamples
+	scd.SampleDesc.Count = 1;                               // how many multisamples
 	scd.Windowed = TRUE;                                    // windowed/full-screen mode
 	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // this enables fullscreen switching with alt+enter
 
-	// create a Deviceice, Deviceice context and swap chain using the information in the scd struct
+														// create a Deviceice, Deviceice context and swap chain using the information in the scd struct
 	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &Device, NULL, &Devicecon);
 
 	//////////////////////
@@ -137,15 +136,41 @@ void InitD3D(HWND hWnd)
 	//////////////////////
 
 	// get the address of the back buffer
-	ID3D11Texture2D *pBackBuffer;
+	ID3D11Texture2D* pBackBuffer;
 	swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
 
 	// use the back buffer address to create the render target
 	Device->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
+
+	ID3D11Texture2D *Resourse2D;
+	D3D11_TEXTURE2D_DESC Resourse2DDesc;
+	ZeroMemory(&Resourse2DDesc, sizeof(Resourse2DDesc));
+	Resourse2DDesc.Width = WIDTH_P;
+	Resourse2DDesc.Height = HEIGHT_P;
+	Resourse2DDesc.MipLevels = 1;
+	Resourse2DDesc.ArraySize = 1;
+	Resourse2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	Resourse2DDesc.SampleDesc.Count = 1;
+	Resourse2DDesc.SampleDesc.Quality = 0;
+	Resourse2DDesc.Usage = D3D11_USAGE_DEFAULT;
+	Resourse2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+
+	Device->CreateTexture2D(&Resourse2DDesc, NULL, &Resourse2D);
+
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC DepthDesc;
+	ZeroMemory(&DepthDesc, sizeof(DepthDesc));
+	DepthDesc.Format = Resourse2DDesc.Format;
+	DepthDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+
+
+	Device->CreateDepthStencilView(Resourse2D, &DepthDesc, &DepthStencilView);
+
 	pBackBuffer->Release();
-	
+
 	// set the render target as the back buffer
-	Devicecon->OMSetRenderTargets(1, &backbuffer, NULL);
+	Devicecon->OMSetRenderTargets(1, &backbuffer, DepthStencilView);
 
 	////////////////// ViewPort
 
@@ -156,7 +181,7 @@ void InitD3D(HWND hWnd)
 	viewport.TopLeftY = 0;
 	viewport.Width = WIDTH_P;
 	viewport.Height = HEIGHT_P;
-
+	viewport.MaxDepth = 1;
 	Devicecon->RSSetViewports(1, &viewport);
 }
 
@@ -213,6 +238,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			}
 			FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
 			Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
+			Devicecon->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH, 1, 0);
 			Bear.Draw(backbuffer, Devicecon, PVW);
 			swapchain->Present(0, 0);
 		}

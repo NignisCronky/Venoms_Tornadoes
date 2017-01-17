@@ -43,10 +43,10 @@ PixelShaderInput main(VertexShaderInput input)
 	//output.pos += mul(boneOffset[input.boneIndice.w], pos) * input.blendWeight.w;
 
 	//Transform the vertex position into projected space.
-	output.pos = mul(output.pos, model);
+	//output.pos = mul(output.pos, model);
 	output.pos = mul(pos, model);
 	output.pos = mul(output.pos, view);
-	//output.pos = mul(output.pos, projection);
+	output.pos = mul(output.pos, projection);
 
 	//Pass the color through without modification.
 	output.uv = float4(input.uv.x, input.uv.y, 1.0f, 1.0f);
