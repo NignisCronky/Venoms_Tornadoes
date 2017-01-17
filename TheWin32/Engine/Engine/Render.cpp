@@ -31,7 +31,7 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 {
 	//Use this shit before you draw
 	texViews = { shaderResourceView };
-	
+
 
 
 
@@ -39,7 +39,7 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 	Frame = 0;
 	// Grabs the view, and projection Passed in
 	// sets the world matrix to idenity
-	this->ConstantBufferInfo.View = Matricies.View;
+	// this->ConstantBufferInfo.View = Matricies.View;
 	DirectX::XMStoreFloat4x4(&this->ConstantBufferInfo.World, DirectX::XMMatrixIdentity());
 	this->ConstantBufferInfo.View = Matricies.View;
 	this->ConstantBufferInfo.LightColor = DirectX::XMFLOAT4(0.4f, 0.1f, 0.8f, 1.0f);
@@ -48,25 +48,25 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 	DirectX::XMStoreFloat4x4(&this->m_WorldMatrix, DirectX::XMMatrixIdentity());
 
 	// creates and sets the vertex shader
-	Device->CreateVertexShader(&_VertShader, sizeof((_VertShader)), NULL, &m_VertexShader);
-	Device->CreatePixelShader(&_PixShader, sizeof((_PixShader)), NULL, &m_PixelShader);
-	Context->VSSetShader(m_VertexShader,0,0);
-	Context->PSSetShader(m_PixelShader,0,0);
+	Device->CreateVertexShader(&_VertShader, sizeof(_VertShader), NULL, &m_VertexShader);
+	Device->CreatePixelShader(&_PixShader, sizeof(_PixShader), NULL, &m_PixelShader);
+	Context->VSSetShader(m_VertexShader, 0, 0);
+	Context->PSSetShader(m_PixelShader, 0, 0);
 
 
 
 	// creates input layout 
 	D3D11_INPUT_ELEMENT_DESC INPUT_DESC[] =
 	{
-		{ "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UV",          0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDINDICES",  0, DXGI_FORMAT_R32G32B32A32_UINT,  0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "POSITION",		0, DXGI_FORMAT_R32G32B32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",			0, DXGI_FORMAT_R32G32B32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "UV",				0, DXGI_FORMAT_R32G32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT",	0, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE",	0, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
-	
-HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
+
+	HRESULT error = Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
 
 
 	// Creates vertex buffer
@@ -117,7 +117,7 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 	_RasterDesc.CullMode = D3D11_CULL_NONE;
 	_RasterDesc.FillMode = D3D11_FILL_SOLID;
 	Device->CreateRasterizerState(&_RasterDesc, &m_SolidFill);
-	
+
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 }
 

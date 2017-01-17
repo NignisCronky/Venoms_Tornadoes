@@ -12,8 +12,8 @@ bool CompareVector2WithEpsilon(const XMFLOAT2& lhs, const XMFLOAT2& rhs);
 
 struct VertexBlendingInfo
 {
-	unsigned int mBlendingIndex;
 	float mBlendingWeight;
+	unsigned int mBlendingIndex;
 
 	VertexBlendingInfo() :
 		mBlendingIndex(0),
@@ -31,29 +31,29 @@ struct PNTIWVertex
 	XMFLOAT3 mPosition;
 	XMFLOAT3 mNormal;
 	XMFLOAT2 mUV;
-	std::vector<VertexBlendingInfo> mVertexBlendingInfos;
+	float mBlendingWeight[4];
+	unsigned int mBlendingIndex[4];
 
-	void SortBlendingInfoByWeight()
+	PNTIWVertex()
 	{
-		std::sort(mVertexBlendingInfos.begin(), mVertexBlendingInfos.end());
+		for (size_t i = 0; i < 4; i++)
+		{
+			mBlendingWeight[i] = 0.0f;
+			mBlendingIndex[i] = 0;
+		}
 	}
 
 	bool operator==(const PNTIWVertex& rhs) const
 	{
 		bool sameBlendingInfo = true;
-
-		// We only compare the blending info when there is blending info
-		if (!(mVertexBlendingInfos.empty() && rhs.mVertexBlendingInfos.empty()))
+		// Each vertex should only have 4 index-weight blending info pairs
+		for (unsigned int i = 0; i < 4; ++i)
 		{
-			// Each vertex should only have 4 index-weight blending info pairs
-			for (unsigned int i = 0; i < 4; ++i)
+			if (mBlendingWeight[i] != rhs.mBlendingWeight[i] ||
+				fabsf(mBlendingIndex[i] - rhs.mBlendingIndex[i]) > 0.001)
 			{
-				if (mVertexBlendingInfos[i].mBlendingIndex != rhs.mVertexBlendingInfos[i].mBlendingIndex ||
-					abs(mVertexBlendingInfos[i].mBlendingWeight - rhs.mVertexBlendingInfos[i].mBlendingWeight) > 0.001)
-				{
-					sameBlendingInfo = false;
-					break;
-				}
+				sameBlendingInfo = false;
+				break;
 			}
 		}
 
@@ -80,7 +80,12 @@ struct CtrlPoint
 
 	CtrlPoint()
 	{
-		mBlendingInfo.reserve(4);
+		mBlendingInfo.reserve(5);
+	}
+
+	void SortBlendingInfoByWeight()
+	{
+		std::sort(mBlendingInfo.begin(), mBlendingInfo.end());
 	}
 };
 

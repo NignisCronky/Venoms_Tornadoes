@@ -1,3 +1,4 @@
+#pragma pack_matrix(row_major);
 // A constant buffer that stores the three basic column-major matrices for composing geometry.
 cbuffer ModelViewProjectionConstantBuffer : register(b0)
 {
@@ -15,14 +16,8 @@ struct VertexShaderInput
 	float3 pos : POSITION;
 	float3 norm : NORMAL;
 	float2 uv : UV;
-	float blendWeight0 : BLENDWEIGHT0;
-	uint  boneIndice0 : BLENDINDICE0;
-	float blendWeight1 : BLENDWEIGHT1;
-	uint  boneIndice1 : BLENDINDICE1;
-	float blendWeight2 : BLENDWEIGHT2;
-	uint  boneIndice2 : BLENDINDICE2;
-	float blendWeight3 : BLENDWEIGHT3;
-	uint  boneIndice3 : BLENDINDICE3;
+	float4 blendWeight : BLENDWEIGHT;
+	uint4  boneIndice : BLENDINDICE;
 };
 
 // Per-pixel color data passed through the pixel shader.
@@ -48,10 +43,10 @@ PixelShaderInput main(VertexShaderInput input)
 	//output.pos = pos;
 
 	//Animate based on bones
-	output.pos  = mul(boneOffset[input.boneIndice0], pos) * input.blendWeight0;
-	output.pos += mul(boneOffset[input.boneIndice1], pos) * input.blendWeight1;
-	output.pos += mul(boneOffset[input.boneIndice2], pos) * input.blendWeight2;
-	output.pos += mul(boneOffset[input.boneIndice3], pos) * input.blendWeight3;
+	output.pos  = mul(boneOffset[input.boneIndice.x], pos) * input.blendWeight.x;
+	output.pos += mul(boneOffset[input.boneIndice.y], pos) * input.blendWeight.y;
+	output.pos += mul(boneOffset[input.boneIndice.z], pos) * input.blendWeight.z;
+	output.pos += mul(boneOffset[input.boneIndice.w], pos) * input.blendWeight.w;
 
 	//Pass the color through without modification.
 	output.uv = float4(input.uv.x, input.uv.y, 1.0f, 1.0f);

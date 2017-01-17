@@ -11,7 +11,7 @@
 #define IOS_REF (*(pManager->GetIOSettings()))
 #endif
 
-std::unordered_map<unsigned int, CtrlPoint*> mControlPoints;
+std::unordered_map<unsigned int, CtrlPoint> mControlPoints;
 
 using namespace DirectX;
 
@@ -140,12 +140,12 @@ void ProcessControlPoints(FbxNode* inNode)
 	unsigned int ctrlPointCount = currMesh->GetControlPointsCount();
 	for (unsigned int i = 0; i < ctrlPointCount; ++i)
 	{
-		CtrlPoint* currCtrlPoint = new CtrlPoint();
+		CtrlPoint currCtrlPoint;
 		XMFLOAT3 currPosition;
 		currPosition.x = static_cast<float>(currMesh->GetControlPointAt(i).mData[0]);
 		currPosition.y = static_cast<float>(currMesh->GetControlPointAt(i).mData[1]);
 		currPosition.z = static_cast<float>(currMesh->GetControlPointAt(i).mData[2]);
-		currCtrlPoint->mPosition = currPosition;
+		currCtrlPoint.mPosition = currPosition;
 		mControlPoints[i] = currCtrlPoint;
 	}
 }
@@ -214,7 +214,7 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton* mS
 				VertexBlendingInfo currBlendingIndexWeightPair;
 				currBlendingIndexWeightPair.mBlendingIndex = currJointIndex;
 				currBlendingIndexWeightPair.mBlendingWeight = (float)currCluster->GetControlPointWeights()[i];
-				mControlPoints[currCluster->GetControlPointIndices()[i]]->mBlendingInfo.push_back(currBlendingIndexWeightPair);
+				mControlPoints[currCluster->GetControlPointIndices()[i]].mBlendingInfo.push_back(currBlendingIndexWeightPair);
 			}
 
 			// Get animation information
@@ -254,9 +254,9 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton* mS
 	currBlendingIndexWeightPair.mBlendingWeight = 0;
 	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
 	{
-		for (size_t i = itr->second->mBlendingInfo.size(); i <= 4; ++i)
+		for (size_t i = itr->second.mBlendingInfo.size(); i <= 4; ++i)
 		{
-			itr->second->mBlendingInfo.push_back(currBlendingIndexWeightPair);
+			itr->second.mBlendingInfo.push_back(currBlendingIndexWeightPair);
 		}
 	}
 }
@@ -392,7 +392,7 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int>* indicies, std::vect
 		for (unsigned int j = 0; j < 3; ++j)
 		{
 			int ctrlPointIndex = currMesh->GetPolygonVertex(i, j);
-			CtrlPoint* currCtrlPoint = mControlPoints[ctrlPointIndex];
+			CtrlPoint currCtrlPoint = mControlPoints[ctrlPointIndex];
 
 			ReadNormal(currMesh, ctrlPointIndex, vertexCounter, normal[j]);
 			// We only have diffuse texture
@@ -402,20 +402,28 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int>* indicies, std::vect
 			}
 
 			PNTIWVertex temp;
-			temp.mPosition = currCtrlPoint->mPosition;
+			temp.mPosition = currCtrlPoint.mPosition;
 			temp.mNormal = normal[j];
 			temp.mUV = UV[j][0];
-			// Copy the blending info from each control point
-			for (unsigned int i = 0; i < currCtrlPoint->mBlendingInfo.size(); ++i)
+			currCtrlPoint.SortBlendingInfoByWeight();
+			size_t k = 0;
+			while (k < currCtrlPoint.mBlendingInfo.size())
 			{
-				VertexBlendingInfo currBlendingInfo;
-				currBlendingInfo.mBlendingIndex = currCtrlPoint->mBlendingInfo[i].mBlendingIndex;
-				currBlendingInfo.mBlendingWeight = currCtrlPoint->mBlendingInfo[i].mBlendingWeight;
-				temp.mVertexBlendingInfos.push_back(currBlendingInfo);
+				if (currCtrlPoint.mBlendingInfo[k].mBlendingWeight == 0.0f)
+				{
+					currCtrlPoint.mBlendingInfo.erase(currCtrlPoint.mBlendingInfo.begin() + k);
+				}
+				else
+					k++;
+			}
+			// Copy the blending info from each control point
+			for (unsigned int l = 0; l < currCtrlPoint.mBlendingInfo.size(); ++l)
+			{
+				temp.mBlendingIndex[l] = currCtrlPoint.mBlendingInfo[l].mBlendingIndex;
+				temp.mBlendingWeight[l] = currCtrlPoint.mBlendingInfo[l].mBlendingWeight;
 			}
 			// Sort the blending info so that later we can remove
 			// duplicated vertices
-			temp.SortBlendingInfoByWeight();
 
 			mVertices->push_back(temp);
 			indicies->push_back(vertexCounter);
@@ -424,11 +432,6 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int>* indicies, std::vect
 	}
 
 	// Now mControlPoints has served its purpose
-	// We can free its memory
-	for (auto itr = mControlPoints.begin(); itr != mControlPoints.end(); ++itr)
-	{
-		delete itr->second;
-	}
 	mControlPoints.clear();
 }
 
@@ -515,13 +518,8 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		f.write((char*)&verts[i].mPosition, sizeof(verts[i].mPosition));
 		f.write((char*)&verts[i].mNormal, sizeof(verts[i].mNormal));
 		f.write((char*)&verts[i].mUV, sizeof(verts[i].mUV));
-		int blen = (int)verts[i].mVertexBlendingInfos.size();
-		f.write((char*)&blen, sizeof(blen));
-		for (size_t j = 0; j < blen; j++)
-		{
-			f.write((char*)&verts[i].mVertexBlendingInfos[j].mBlendingIndex, sizeof(verts[i].mVertexBlendingInfos[j].mBlendingIndex));
-			f.write((char*)&verts[i].mVertexBlendingInfos[j].mBlendingWeight, sizeof(verts[i].mVertexBlendingInfos[j].mBlendingWeight));
-		}
+		f.write((char*)&verts[i].mBlendingWeight[0], sizeof(verts[i].mBlendingWeight));
+		f.write((char*)&verts[i].mBlendingIndex[0], sizeof(verts[i].mBlendingIndex));
 	}
 
 	int ilen = (int)indicies.size();
@@ -634,15 +632,8 @@ bool ReadBinary(const char* loadfile, Skeleton* skelly, std::vector<unsigned int
 		f.read((char*)&tv.mPosition, sizeof(tv.mPosition));
 		f.read((char*)&tv.mNormal, sizeof(tv.mNormal));
 		f.read((char*)&tv.mUV, sizeof(tv.mUV));
-		int blen;
-		f.read((char*)&blen, sizeof(blen));
-		for (size_t j = 0; j < blen; j++)
-		{
-			VertexBlendingInfo tvb;
-			f.read((char*)&tvb.mBlendingIndex, sizeof(tvb.mBlendingIndex));
-			f.read((char*)&tvb.mBlendingWeight, sizeof(tvb.mBlendingWeight));
-			tv.mVertexBlendingInfos.push_back(tvb);
-		}
+		f.read((char*)&tv.mBlendingWeight[0], sizeof(tv.mBlendingWeight));
+		f.read((char*)&tv.mBlendingIndex[0], sizeof(tv.mBlendingIndex));
 		verts->push_back(tv);
 	}
 
