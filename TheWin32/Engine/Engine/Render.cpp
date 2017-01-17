@@ -1,7 +1,5 @@
 #include "Render.h"
 
-
-
 void Render::Update(Pro_View_World Matricies, ID3D11DeviceContext * Context)
 {
 	this->ConstantBufferInfo.View = Matricies.View;
@@ -137,6 +135,4 @@ void Render::Set(ID3D11DeviceContext * Context)
 		Context->RSSetState(m_WireFrame);
 	else
 		Context->RSSetState(m_SolidFill);
-
-
 }

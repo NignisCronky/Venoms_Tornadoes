@@ -1,15 +1,5 @@
 #pragma once
-// include the basic windows header file
-
-
-
-
-
-
-#include "Globals.h"
-#include"Render.h"
-using DirectX::XMMATRIX;
-using DirectX::XMFLOAT4X4;
+#include "Render.h"
 
 //&swapchain, &Device, NULL, &Devicecon, backbuffer
 
@@ -182,21 +172,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 		ShowWindow(hWnd, nCmdShow);
 		///////////////////////////////////////////////////////////////
-		
-
-
-
-
-
-
-
-
-
+		FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin");
+		Skeleton skelly;
+		std::vector<unsigned int> indicies;
+		std::vector<PNTIWVertex> verts;
+		ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
 
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
-		Render Box(nullptr, PVW,,,, Devicecon,Device);
-		 Box.Draw(backbuffer, Devicecon,PVW );
 		 swapchain->Present(0, 0);
 
 

@@ -3,12 +3,15 @@
 #include <fbxsdk.h>
 #include <fbxsdk\fileio\fbxiosettings.h>
 #include "FBX Exporter.h"
+#include <unordered_map>
 #include <fstream>
 
 #ifdef IOS_REF
 #undef  IOS_REF
 #define IOS_REF (*(pManager->GetIOSettings()))
 #endif
+
+std::unordered_map<unsigned int, CtrlPoint*> mControlPoints;
 
 using namespace DirectX;
 
@@ -21,13 +24,57 @@ XMFLOAT4 Vec4ToFloat4(FbxVector4 vec)
 	return XMFLOAT4((float)vec.mData[0], (float)vec.mData[1], (float)vec.mData[2], (float)vec.mData[3]);
 }
 
-static XMMATRIX ToXm(const FbxAMatrix& pSrc)
+static XMFLOAT4X4 ToXm(const FbxAMatrix& pSrc)
 {
-	return XMMatrixSet(
+	return XMFLOAT4X4(
 		static_cast<float>(pSrc.Get(0, 0)), static_cast<float>(pSrc.Get(0, 1)), static_cast<float>(pSrc.Get(0, 2)), static_cast<float>(pSrc.Get(0, 3)),
 		static_cast<float>(pSrc.Get(1, 0)), static_cast<float>(pSrc.Get(1, 1)), static_cast<float>(pSrc.Get(1, 2)), static_cast<float>(pSrc.Get(1, 3)),
 		static_cast<float>(pSrc.Get(2, 0)), static_cast<float>(pSrc.Get(2, 1)), static_cast<float>(pSrc.Get(2, 2)), static_cast<float>(pSrc.Get(2, 3)),
 		static_cast<float>(pSrc.Get(3, 0)), static_cast<float>(pSrc.Get(3, 1)), static_cast<float>(pSrc.Get(3, 2)), static_cast<float>(pSrc.Get(3, 3)));
+}
+
+static XMFLOAT4X4 MultiplyFloat(XMFLOAT4X4 a, float b)
+{
+	return XMFLOAT4X4(
+		a._11 * b,
+		a._12 * b,
+		a._13 * b,
+		a._14 * b,
+		a._21 * b,
+		a._22 * b,
+		a._23 * b,
+		a._24 * b,
+		a._31 * b,
+		a._32 * b,
+		a._33 * b,
+		a._34 * b,
+		a._41 * b,
+		a._42 * b,
+		a._43 * b,
+		a._44 * b
+	);
+}
+
+static XMFLOAT4X4 AddFloat4x4(XMFLOAT4X4 a, XMFLOAT4X4 b)
+{
+	return XMFLOAT4X4(
+		a._11 + b._11,
+		a._12 + b._12,
+		a._13 + b._13,
+		a._14 + b._14,
+		a._21 + b._21,
+		a._22 + b._22,
+		a._23 + b._23,
+		a._24 + b._24,
+		a._31 + b._31,
+		a._32 + b._32,
+		a._33 + b._33,
+		a._34 + b._34,
+		a._41 + b._41,
+		a._42 + b._42,
+		a._43 + b._43,
+		a._44 + b._44
+	);
 }
 
 FbxAMatrix GetGeometryTransformation(FbxNode* inNode)
@@ -61,27 +108,25 @@ void DestroySdkObjects(FbxManager* pManager, FbxScene*& pScene)
 {
 	//Delete the FBX Manager. All the objects that have been allocated using the FBX Manager and that haven't been explicitly destroyed are also automatically destroyed.
 	if (pManager) pManager->Destroy();
-	if (pScene) pScene->Destroy();
 }
 
-void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myIndex, int inParentIndex, Skeleton mSkeleton)
+void ProcessSkeletonHierarchyRecursively(FbxNode* inNode, int inDepth, int myIndex, int inParentIndex, Skeleton* mSkeleton)
 {
 	if (inNode->GetNodeAttribute() && inNode->GetNodeAttribute()->GetAttributeType() && inNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 	{
 		Joint currJoint;
 		currJoint.mParentIndex = inParentIndex;
 		currJoint.mName = inNode->GetName();
-		mSkeleton.mJoints.push_back(currJoint);
+		mSkeleton->mJoints.push_back(currJoint);
 	}
 	for (int i = 0; i < inNode->GetChildCount(); i++)
 	{
-		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, (int)mSkeleton.mJoints.size(), myIndex, mSkeleton);
+		ProcessSkeletonHierarchyRecursively(inNode->GetChild(i), inDepth + 1, (int)mSkeleton->mJoints.size(), myIndex, mSkeleton);
 	}
 }
 
-void ProcessSkeletonHierarchy(FbxNode* inRootNode, Skeleton mSkeleton)
+void ProcessSkeletonHierarchy(FbxNode* inRootNode, Skeleton* mSkeleton)
 {
-
 	for (int childIndex = 0; childIndex < inRootNode->GetChildCount(); ++childIndex)
 	{
 		FbxNode* currNode = inRootNode->GetChild(childIndex);
@@ -105,11 +150,11 @@ void ProcessControlPoints(FbxNode* inNode)
 	}
 }
 
-unsigned int FindJointIndexUsingName(const std::string& inJointName, Skeleton mSkeleton)
+unsigned int FindJointIndexUsingName(const std::string& inJointName, Skeleton* mSkeleton)
 {
-	for (unsigned int i = 0; i < mSkeleton.mJoints.size(); ++i)
+	for (unsigned int i = 0; i < mSkeleton->mJoints.size(); ++i)
 	{
-		if (mSkeleton.mJoints[i].mName == inJointName)
+		if (mSkeleton->mJoints[i].mName == inJointName)
 		{
 			return i;
 		}
@@ -118,7 +163,7 @@ unsigned int FindJointIndexUsingName(const std::string& inJointName, Skeleton mS
 	throw std::exception("Skeleton information in FBX file is corrupted.");
 }
 
-void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton)
+void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton* mSkeleton)
 {
 	FbxMesh* currMesh = inNode->GetMesh();
 	unsigned int numOfDeformers = currMesh->GetDeformerCount();
@@ -157,8 +202,9 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 			globalBindposeInverseMatrix = transformLinkMatrix.Inverse() * transformMatrix * geometryTransform;
 
 			// Update the information in mSkeleton 
-			mSkeleton.mJoints[currJointIndex].translation = Vec4ToFloat3(globalBindposeInverseMatrix.GetT());
-			mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat4(globalBindposeInverseMatrix.GetR());
+			mSkeleton->mJoints[currJointIndex].globalBindposeInverseMatrix = ToXm(globalBindposeInverseMatrix);
+			//mSkeleton.mJoints[currJointIndex].translation = Vec4ToFloat3(globalBindposeInverseMatrix.GetT());
+			//mSkeleton.mJoints[currJointIndex].rotation = Vec4ToFloat4(globalBindposeInverseMatrix.GetR());
 			//mSkeleton.mJoints[currJointIndex].scale = Vec4ToFloat3(globalBindposeInverseMatrix.GetS());
 
 			// Associate each joint with the control points it affects
@@ -175,11 +221,11 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 			// Now only supports one take
 			FbxAnimStack* currAnimStack = pScene->GetSrcObject<FbxAnimStack>(0);
 			FbxString animStackName = currAnimStack->GetName();
-			mSkeleton.mAnimationName = animStackName.Buffer();
+			mSkeleton->mAnimationName = animStackName.Buffer();
 			FbxTakeInfo* takeInfo = pScene->GetTakeInfo(animStackName);
 			FbxTime start = takeInfo->mLocalTimeSpan.GetStart();
 			FbxTime end = takeInfo->mLocalTimeSpan.GetStop();
-			mSkeleton.mAnimationLength = end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1;
+			mSkeleton->mAnimationLength = end.GetFrameCount(FbxTime::eFrames24) - start.GetFrameCount(FbxTime::eFrames24) + 1;
 
 			for (FbxLongLong i = start.GetFrameCount(FbxTime::eFrames24); i <= end.GetFrameCount(FbxTime::eFrames24); ++i)
 			{
@@ -189,10 +235,12 @@ void ProcessJointsAndAnimations(FbxScene*& pScene, FbxNode* inNode, Skeleton mSk
 				currAnim.mFrameNum = i;
 				FbxAMatrix currentTransformOffset = inNode->EvaluateGlobalTransform(currTime) * geometryTransform;
 				FbxAMatrix mGlobalTransform = currentTransformOffset.Inverse() * currCluster->GetLink()->EvaluateGlobalTransform(currTime);
-				currAnim.translation = Vec4ToFloat3(mGlobalTransform.GetT());
-				currAnim.rotation = Vec4ToFloat4(mGlobalTransform.GetR());
+				
+				currAnim.mGlobalTransform = ToXm(mGlobalTransform);
+				//currAnim.translation = Vec4ToFloat3(mGlobalTransform.GetT());
+				//currAnim.rotation = Vec4ToFloat4(mGlobalTransform.GetR());
 				//currAnim.scale = Vec4ToFloat3(mGlobalTransform.GetS());
-				mSkeleton.mJoints[currJointIndex].mAnimation.push_back(currAnim);
+				mSkeleton->mJoints[currJointIndex].mAnimation.push_back(currAnim);
 			}
 		}
 	}
@@ -326,13 +374,13 @@ void ReadUV(FbxMesh* inMesh, int inCtrlPointIndex, int inTextureUVIndex, int inU
 	}
 }
 
-void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> mVertices)
+void ProcessMesh(FbxNode* inNode, std::vector<unsigned int>* indicies, std::vector<PNTIWVertex>* mVertices)
 {
 	FbxMesh* currMesh = inNode->GetMesh();
 
 	unsigned int mTriangleCount = currMesh->GetPolygonCount();
 	int vertexCounter = 0;
-	indicies.reserve(mTriangleCount);
+	indicies->reserve(mTriangleCount);
 
 	for (unsigned int i = 0; i < mTriangleCount; ++i)
 	{
@@ -369,8 +417,8 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vecto
 			// duplicated vertices
 			temp.SortBlendingInfoByWeight();
 
-			mVertices.push_back(temp);
-			indicies.push_back(vertexCounter);
+			mVertices->push_back(temp);
+			indicies->push_back(vertexCounter);
 			++vertexCounter;
 		}
 	}
@@ -385,7 +433,7 @@ void ProcessMesh(FbxNode* inNode, std::vector<unsigned int> indicies, std::vecto
 }
 
 
-void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> mVertices)
+void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton* mSkeleton, std::vector<unsigned int>* indicies, std::vector<PNTIWVertex>* mVertices)
 {
 	if (inNode->GetNodeAttribute())
 	{
@@ -410,21 +458,20 @@ void ProcessGeometry(FbxScene*& pScene, FbxNode* inNode, Skeleton mSkeleton, std
 Keyframe Interpolate(Keyframe a, Keyframe b, float interp)
 {
 	Keyframe c;
-	c.rotation = XMFLOAT4((1 - interp) * a.rotation.x + interp * b.rotation.x, (1 - interp) * a.rotation.y + interp * b.rotation.y, (1 - interp) * a.rotation.z + interp * b.rotation.z, (1 - interp) * a.rotation.w + interp * b.rotation.w);
-	c.translation = XMFLOAT3((1 - interp) * a.translation.x + interp * b.translation.x, (1 - interp) * a.translation.y + interp * b.translation.y, (1 - interp) * a.translation.z + interp * b.translation.z);
+	c.mGlobalTransform = AddFloat4x4(MultiplyFloat(a.mGlobalTransform, (1 - interp)), MultiplyFloat(b.mGlobalTransform, interp));
 	return c;
 }
 
-void ReduceKeyframes(Skeleton skelly)
+void ReduceKeyframes(Skeleton* skelly)
 {
-	for (size_t i = 0; i < skelly.mJoints.size(); i++)
+	for (size_t i = 0; i < skelly->mJoints.size(); i++)
 	{
 		int j = 0;
-		while (j < skelly.mJoints[i].mAnimation.size() - 2)
+		while (j < (int)skelly->mJoints[i].mAnimation.size() - 2)
 		{
-			if (skelly.mJoints[i].mAnimation[j + 1] == Interpolate(skelly.mJoints[i].mAnimation[j], skelly.mJoints[i].mAnimation[j + 2], .5f))
+			if (skelly->mJoints[i].mAnimation[j + 1] == Interpolate(skelly->mJoints[i].mAnimation[j], skelly->mJoints[i].mAnimation[j + 2], .5f))
 			{
-				skelly.mJoints[i].mAnimation.erase(skelly.mJoints[i].mAnimation.begin() + j + 1);
+				skelly->mJoints[i].mAnimation.erase(skelly->mJoints[i].mAnimation.begin() + j + 1);
 			}
 			else
 				j++;
@@ -451,15 +498,13 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 		f.write((char*)&length, sizeof(length));
 		f.write(skelly.mJoints[i].mName.c_str(), length);
 		f.write((char*)&skelly.mJoints[i].mParentIndex, sizeof(skelly.mJoints[i].mParentIndex));
-		f.write((char*)&skelly.mJoints[i].translation, sizeof(skelly.mJoints[i].translation));
-		f.write((char*)&skelly.mJoints[i].rotation, sizeof(skelly.mJoints[i].rotation));
+		f.write((char*)&skelly.mJoints[i].globalBindposeInverseMatrix, sizeof(skelly.mJoints[i].globalBindposeInverseMatrix));
 		int animsize = (int)skelly.mJoints[i].mAnimation.size();
 		f.write((char*)&animsize, sizeof(animsize));
 		for (size_t j = 0; j < animsize; j++)
 		{
 			f.write((char*)&skelly.mJoints[i].mAnimation[j].mFrameNum, sizeof(skelly.mJoints[i].mAnimation[j].mFrameNum));
-			f.write((char*)&skelly.mJoints[i].mAnimation[j].translation, sizeof(skelly.mJoints[i].mAnimation[j].translation));
-			f.write((char*)&skelly.mJoints[i].mAnimation[j].rotation, sizeof(skelly.mJoints[i].mAnimation[j].rotation));
+			f.write((char*)&skelly.mJoints[i].mAnimation[j].mGlobalTransform, sizeof(skelly.mJoints[i].mAnimation[j].mGlobalTransform));
 		}
 	}
 
@@ -489,7 +534,7 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 	f.close();
 }
 
-void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = true)
+void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite)
 {
 	std::ifstream f(savefile);
 	if (!overwrite && f.good())
@@ -518,7 +563,7 @@ void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = tr
 	fbxImporter->Destroy();
 
 	Skeleton skelly;
-	ProcessSkeletonHierarchy(pScene->GetRootNode(), skelly);
+	ProcessSkeletonHierarchy(pScene->GetRootNode(), &skelly);
 
 	//Uncomment if working with files without animations
 	//if (skelly.mJoints.empty())
@@ -527,8 +572,8 @@ void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = tr
 	std::vector<unsigned int> indicies;
 	std::vector<PNTIWVertex> verts;
 
-	ProcessGeometry(pScene, pScene->GetRootNode(), skelly, indicies, verts);
-	ReduceKeyframes(skelly);
+	ProcessGeometry(pScene, pScene->GetRootNode(), &skelly, &indicies, &verts);
+	//ReduceKeyframes(&skelly);
 
 	//Output skelleton, indicies, and verts
 	WriteToBinary(savefile, skelly, indicies, verts);
@@ -537,24 +582,24 @@ void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite = tr
 	return;
 }
 
-bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int> indicies, std::vector<PNTIWVertex> verts)
+bool ReadBinary(const char* loadfile, Skeleton* skelly, std::vector<unsigned int>* indicies, std::vector<PNTIWVertex>* verts)
 {
 	std::fstream f;
 	f.open(loadfile, std::ios::in | std::ios::binary);
 	if (!f.good())
 		return false;
 
-	f.read((char*)&skelly.mAnimationLength, sizeof(skelly.mAnimationLength));
+	f.read((char*)&skelly->mAnimationLength, sizeof(skelly->mAnimationLength));
 	int len;
 	f.read((char*)&len, sizeof(len));
 	char* temp = new char[len];
 	f.read(temp, len);
-	skelly.mAnimationName = temp;
+	skelly->mAnimationName = temp;
 	delete[] temp;
 
 	int size;
 	f.read((char*)&size, sizeof(size));
-	skelly.mJoints.resize(size);
+	skelly->mJoints.reserve(size);
 
 	for (size_t i = 0; i < size; i++)
 	{
@@ -566,25 +611,23 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 		tj.mName = temp;
 		delete[] temp;
 		f.read((char*)&tj.mParentIndex, sizeof(tj.mParentIndex));
-		f.read((char*)&tj.translation, sizeof(tj.translation));
-		f.read((char*)&tj.rotation, sizeof(tj.rotation));
+		f.read((char*)&tj.globalBindposeInverseMatrix, sizeof(tj.globalBindposeInverseMatrix));
 		int animsize;
 		f.read((char*)&animsize, sizeof(animsize));
-		tj.mAnimation.resize(animsize);
+		tj.mAnimation.reserve(animsize);
 		for (size_t j = 0; j < animsize; j++)
 		{
 			Keyframe tk;
 			f.read((char*)&tk.mFrameNum, sizeof(tk.mFrameNum));
-			f.read((char*)&tk.translation, sizeof(tk.translation));
-			f.read((char*)&tk.rotation, sizeof(tk.rotation));
+			f.read((char*)&tk.mGlobalTransform, sizeof(tk.mGlobalTransform));
 			tj.mAnimation.push_back(tk);
 		}
-		skelly.mJoints.push_back(tj);
+		skelly->mJoints.push_back(tj);
 	}
 
 	int vlen;
 	f.read((char*)&vlen, sizeof(vlen));
-	verts.resize(vlen);
+	verts->reserve(vlen);
 	for (size_t i = 0; i < vlen; i++)
 	{
 		PNTIWVertex tv;
@@ -600,17 +643,17 @@ bool ReadBinary(const char* loadfile, Skeleton skelly, std::vector<unsigned int>
 			f.read((char*)&tvb.mBlendingWeight, sizeof(tvb.mBlendingWeight));
 			tv.mVertexBlendingInfos.push_back(tvb);
 		}
-		verts.push_back(tv);
+		verts->push_back(tv);
 	}
 
 	int ilen;
 	f.read((char*)&ilen, sizeof(ilen));
-	indicies.resize(ilen);
+	indicies->reserve(ilen);
 	for (size_t i = 0; i < ilen; i++)
 	{
 		unsigned int t;
 		f.read((char*)&t, sizeof(t));
-		indicies.push_back(t);
+		indicies->push_back(t);
 	}
 
 	f.close();

@@ -1,5 +1,6 @@
 #pragma once
 #include "Globals.h"
+
 class Render
 {
 	bool m_IsWireFrammed = false;
