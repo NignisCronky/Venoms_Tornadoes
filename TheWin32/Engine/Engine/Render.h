@@ -14,7 +14,7 @@ class Render
 	ID3D11RasterizerState *m_WireFrame = nullptr;
 	ID3D11RasterizerState *m_SolidFill = nullptr;
 
-	ID3D11InputLayout *m_InputLayout = nullptr;
+	ID3D11InputLayout *m_InputLayout;
 
 	ID3D11VertexShader *m_VertexShader = nullptr;
 	ID3D11PixelShader *m_PixelShader = nullptr;
@@ -35,33 +35,36 @@ class Render
 
 public:
 	void Update(Pro_View_World Matricies, ID3D11DeviceContext * Context);
-	
+
 	void Draw(ID3D11RenderTargetView * _BackBuffer, ID3D11DeviceContext * Context, Pro_View_World Matricies);
-	
+
 	Render();
 
-	Render(ID3D11Texture2D *texture, Pro_View_World Matricies,std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context,ID3D11Device *Device);
-	
+	Render(ID3D11Texture2D *texture, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
+
 	~Render();
 
-	std::vector<XMFLOAT4X4> CalcBoneOffSets(std::vector<Joint> Bones)
+	void CalcBoneOffSets(std::vector<Joint> Bones, XMFLOAT4X4* boneoffsets)
 	{
-		std::vector<XMFLOAT4X4> MAtrices;
-
 		// for each bone, create a matrix and push it onto the vector
 		for (unsigned i = 0; i < (unsigned)Bones.size(); i++)
 		{
-			XMMATRIX Temp;
-			// set to idenity
-			//Temp = (DirectX::XMMatrixMultiply(DirectX::XMMatrixIdentity(), DirectX::XMMatrixTranslation(Bones[i].translation.x, Bones[i].translation.y, Bones[i].translation.z)));
-			//Temp = DirectX::XMMatrixMultiply(, );
-			// translate it
-			// rotate it
-
+			if (Bones[i].mAnimation.size()== 0)
+			{
+				XMFLOAT4X4 T;
+				XMStoreFloat4x4(&T, DirectX::XMMatrixIdentity());
+				boneoffsets[i] = T;
+			}
+			else
+			{
+				XMMATRIX M = XMLoadFloat4x4(&Bones[i].globalBindposeInverseMatrix);
+				XMMATRIX C = XMLoadFloat4x4(&Bones[i].mAnimation[Frame].mGlobalTransform);
+				XMMATRIX Temp = XMMatrixMultiply(M, C);
+				XMFLOAT4X4 T;
+				XMStoreFloat4x4(&T, Temp);
+				boneoffsets[i] = T;
+			}
 		}
-
-		//return the vector
-		return MAtrices;
 	}
 
 
