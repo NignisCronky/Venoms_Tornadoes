@@ -15,8 +15,14 @@ struct VertexShaderInput
 	float3 pos : POSITION;
 	float3 norm : NORMAL;
 	float2 uv : UV;
-	float4 blendWeights : BLENDWEIGHT;
-	uint4  boneIndices : BLENDINDICES;
+	float blendWeight0 : BLENDWEIGHT0;
+	uint  boneIndice0 : BLENDINDICE0;
+	float blendWeight1 : BLENDWEIGHT1;
+	uint  boneIndice1 : BLENDINDICE1;
+	float blendWeight2 : BLENDWEIGHT2;
+	uint  boneIndice2 : BLENDINDICE2;
+	float blendWeight3 : BLENDWEIGHT3;
+	uint  boneIndice3 : BLENDINDICE3;
 };
 
 // Per-pixel color data passed through the pixel shader.
@@ -42,10 +48,10 @@ PixelShaderInput main(VertexShaderInput input)
 	//output.pos = pos;
 
 	//Animate based on bones
-	output.pos  = mul(boneOffset[input.boneIndices.x], pos) * input.blendWeights.x;
-	output.pos += mul(boneOffset[input.boneIndices.y], pos) * input.blendWeights.y;
-	output.pos += mul(boneOffset[input.boneIndices.z], pos) * input.blendWeights.z;
-	output.pos += mul(boneOffset[input.boneIndices.w], pos) * input.blendWeights.w;
+	output.pos  = mul(boneOffset[input.boneIndice0], pos) * input.blendWeight0;
+	output.pos += mul(boneOffset[input.boneIndice1], pos) * input.blendWeight1;
+	output.pos += mul(boneOffset[input.boneIndice2], pos) * input.blendWeight2;
+	output.pos += mul(boneOffset[input.boneIndice3], pos) * input.blendWeight3;
 
 	//Pass the color through without modification.
 	output.uv = float4(input.uv.x, input.uv.y, 1.0f, 1.0f);
