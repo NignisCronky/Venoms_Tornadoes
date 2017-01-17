@@ -31,7 +31,7 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 {
 	//Use this shit before you draw
 	texViews = { shaderResourceView };
-	
+
 
 
 
@@ -50,23 +50,29 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 	// creates and sets the vertex shader
 	Device->CreateVertexShader(&_VertShader, sizeof((_VertShader)), NULL, &m_VertexShader);
 	Device->CreatePixelShader(&_PixShader, sizeof((_PixShader)), NULL, &m_PixelShader);
-	Context->VSSetShader(m_VertexShader,0,0);
-	Context->PSSetShader(m_PixelShader,0,0);
+	Context->VSSetShader(m_VertexShader, 0, 0);
+	Context->PSSetShader(m_PixelShader, 0, 0);
 
 
 
 	// creates input layout 
 	D3D11_INPUT_ELEMENT_DESC INPUT_DESC[] =
 	{
-		{ "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UV",          0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDINDICES",  0, DXGI_FORMAT_R32G32B32A32_UINT,  0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		{ "POSITION",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",        0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "UV",            0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT0",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE0",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT1",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE1",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT2",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE2",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT3",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE3",  0, DXGI_FORMAT_R32_FLOAT,          0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
-	
-HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
+
+	HRESULT error = Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
 
 
 	// Creates vertex buffer
@@ -117,7 +123,7 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 	_RasterDesc.CullMode = D3D11_CULL_NONE;
 	_RasterDesc.FillMode = D3D11_FILL_SOLID;
 	Device->CreateRasterizerState(&_RasterDesc, &m_SolidFill);
-	
+
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 }
 
