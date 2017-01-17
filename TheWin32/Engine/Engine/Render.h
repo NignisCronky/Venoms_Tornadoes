@@ -50,12 +50,7 @@ public:
 		// for each bone, create a matrix and push it onto the vector
 		for (unsigned i = 0; i < (unsigned)Bones.size(); i++)
 		{
-			XMMATRIX Temp;
-			// set to idenity
-			Temp = (DirectX::XMMatrixMultiply(DirectX::XMMatrixIdentity(), DirectX::XMMatrixTranslation(Bones[i].translation.x, Bones[i].translation.y, Bones[i].translation.z)));
-			Temp = DirectX::XMMatrixMultiply(, );
-			// translate it
-			// rotate it
+			XMMATRIX Temp =	Bones[i].matrix;
 
 		}
 

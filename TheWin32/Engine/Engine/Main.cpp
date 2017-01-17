@@ -183,11 +183,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		ShowWindow(hWnd, nCmdShow);
 		///////////////////////////////////////////////////////////////
 		
+
+
+
+
+
+
+
+
+
+
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
 		Render Box(nullptr, PVW,,,, Devicecon,Device);
 		 Box.Draw(backbuffer, Devicecon,PVW );
-		
+		 swapchain->Present(0, 0);
 
 
 
@@ -215,10 +225,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				//game code goes here
 			}
 
-
-			//	UpdateCamera(10.0f, 1.0f, delta);
-
-			//RenderFrame(wireFram, mesh, bones, sphere);
+			Box.Draw(backbuffer, Devicecon, PVW);
+			swapchain->Present(0, 0);
 		}
 		//this is where we clean 3d
 		return (int)msg.wParam;
