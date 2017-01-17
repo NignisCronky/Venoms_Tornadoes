@@ -1,5 +1,6 @@
 #pragma once
 #include "Globals.h"
+
 class Render
 {
 	bool m_IsWireFrammed = false;
@@ -52,8 +53,8 @@ public:
 		{
 			XMMATRIX Temp;
 			// set to idenity
-			Temp = (DirectX::XMMatrixMultiply(DirectX::XMMatrixIdentity(), DirectX::XMMatrixTranslation(Bones[i].translation.x, Bones[i].translation.y, Bones[i].translation.z)));
-			Temp = DirectX::XMMatrixMultiply(, );
+			//Temp = (DirectX::XMMatrixMultiply(DirectX::XMMatrixIdentity(), DirectX::XMMatrixTranslation(Bones[i].translation.x, Bones[i].translation.y, Bones[i].translation.z)));
+			//Temp = DirectX::XMMatrixMultiply(, );
 			// translate it
 			// rotate it
 

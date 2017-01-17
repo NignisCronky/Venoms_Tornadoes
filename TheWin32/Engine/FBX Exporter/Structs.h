@@ -7,36 +7,9 @@
 using namespace DirectX;
 const XMFLOAT2 vector2Epsilon = XMFLOAT2(0.00001f, 0.00001f);
 const XMFLOAT3 vector3Epsilon = XMFLOAT3(0.00001f, 0.00001f, 0.00001f);
-bool CompareVector3WithEpsilon(const XMFLOAT3& lhs, const XMFLOAT3& rhs)
-{
-	return XMVector3NearEqual(XMLoadFloat3(&lhs), XMLoadFloat3(&rhs), XMLoadFloat3(&vector3Epsilon)) == true;
-}
+bool CompareVector3WithEpsilon(const XMFLOAT3& lhs, const XMFLOAT3& rhs);
 
-bool CompareVector2WithEpsilon(const XMFLOAT2& lhs, const XMFLOAT2& rhs)
-{
-	return XMVector3NearEqual(XMLoadFloat2(&lhs), XMLoadFloat2(&rhs), XMLoadFloat2(&vector2Epsilon)) == true;
-}
-
-
-struct PNTVertex
-{
-	XMFLOAT3 mPosition;
-	XMFLOAT3 mNormal;
-	XMFLOAT2 mUV;
-
-	bool operator==(const PNTVertex& rhs) const
-	{
-		uint32_t position;
-		uint32_t normal;
-		uint32_t uv;
-
-		XMVectorEqualR(&position, XMLoadFloat3(&(this->mPosition)), XMLoadFloat3(&rhs.mPosition));
-		XMVectorEqualR(&normal, XMLoadFloat3(&(this->mNormal)), XMLoadFloat3(&rhs.mNormal));
-		XMVectorEqualR(&uv, XMLoadFloat2(&(this->mUV)), XMLoadFloat2(&rhs.mUV));
-
-		return XMComparisonAllTrue(position) && XMComparisonAllTrue(normal) && XMComparisonAllTrue(uv);
-	}
-};
+bool CompareVector2WithEpsilon(const XMFLOAT2& lhs, const XMFLOAT2& rhs);
 
 struct VertexBlendingInfo
 {
@@ -118,9 +91,7 @@ struct CtrlPoint
 struct Keyframe
 {
 	long long mFrameNum;
-	XMFLOAT3 translation;
-	XMFLOAT4 rotation;
-	//XMFLOAT3 scale;
+	XMFLOAT4X4 mGlobalTransform;
 
 	Keyframe()
 	{
@@ -128,14 +99,23 @@ struct Keyframe
 
 	bool operator==(const Keyframe& a) const
 	{
-		return
-			translation.x == a.translation.x &&
-			translation.y == a.translation.y &&
-			translation.z == a.translation.z &&
-			rotation.x == a.rotation.x &&
-			rotation.y == a.rotation.y &&
-			rotation.z == a.rotation.z &&
-			rotation.w == a.rotation.w;
+		return (
+			mGlobalTransform._11 == a.mGlobalTransform._11 &&
+			mGlobalTransform._12 == a.mGlobalTransform._12 &&
+			mGlobalTransform._13 == a.mGlobalTransform._13 &&
+			mGlobalTransform._14 == a.mGlobalTransform._14 &&
+			mGlobalTransform._21 == a.mGlobalTransform._21 &&
+			mGlobalTransform._22 == a.mGlobalTransform._22 &&
+			mGlobalTransform._23 == a.mGlobalTransform._23 &&
+			mGlobalTransform._24 == a.mGlobalTransform._24 &&
+			mGlobalTransform._31 == a.mGlobalTransform._31 &&
+			mGlobalTransform._32 == a.mGlobalTransform._32 &&
+			mGlobalTransform._33 == a.mGlobalTransform._33 &&
+			mGlobalTransform._34 == a.mGlobalTransform._34 &&
+			mGlobalTransform._41 == a.mGlobalTransform._41 &&
+			mGlobalTransform._42 == a.mGlobalTransform._42 &&
+			mGlobalTransform._43 == a.mGlobalTransform._43 &&
+			mGlobalTransform._44 == a.mGlobalTransform._44);
 	}
 };
 
@@ -144,15 +124,12 @@ struct Joint
 {
 	std::string mName;
 	int mParentIndex;
-	XMFLOAT3 translation;
-	XMFLOAT4 rotation;
+	XMFLOAT4X4 globalBindposeInverseMatrix;
 	//XMFLOAT3 scale;
 	std::vector<Keyframe> mAnimation;
 
 	Joint()
 	{
-		translation = XMFLOAT3(1.0f, 1.0f, 1.0f);
-		rotation = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 		mParentIndex = -1;
 	}
 
@@ -174,7 +151,10 @@ struct BoneContainer
 {
 	unsigned NumOFBones;
 	std::vector<XMFLOAT4X4> Bones;
-	BoneContainer();
+	BoneContainer()
+	{
+
+	}
 	BoneContainer(unsigned n, std::vector<XMFLOAT4X4> B)
 	{
 		NumOFBones = n;
@@ -207,17 +187,3 @@ struct MVPDCB
 	}
 
 };
-
-
-
-//struct Triangle
-//{
-//	std::vector<unsigned int> mIndices;
-//	std::string mMaterialName;
-//	unsigned int mMaterialIndex;
-//
-//	bool operator<(const Triangle& rhs)
-//	{
-//		return mMaterialIndex < rhs.mMaterialIndex;
-//	}
-//};

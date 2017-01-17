@@ -1,5 +1,4 @@
 #pragma once
-
 #include <Windows.h>
 #include "Vshader.csh"
 #include "Pshader.csh"
