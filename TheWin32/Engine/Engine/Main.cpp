@@ -89,17 +89,18 @@ void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
 #pragma region HelperFunctions
 void SetUpMatrices(Pro_View_World& pvw)
 {
-	float aspectRatio = WIDTH_P / HEIGHT_P;
+	float aspectRatio = (float)WIDTH_P / (float)HEIGHT_P;
 	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
+	
 	if (aspectRatio < 1.0f)
 	{
 		fovAngleY *= 2.0f;
 	}
-	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovRH(fovAngleY, aspectRatio, 0.01f, 100.0f);
+	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 100.0f);
 	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
 
-	perspectiveMatrix = DirectX::XMMatrixMultiply(DirectX::XMMatrixTranslation(-2.5f, -2.5f, -5.1f), DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(45.0f)));
-	DirectX::XMStoreFloat4x4(&pvw.View, perspectiveMatrix);
+	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,-500.0f);
+	DirectX::XMStoreFloat4x4(&pvw.View, XMMatrixInverse(nullptr,perspectiveMatrix));
 
 	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
 }
@@ -173,16 +174,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 		ShowWindow(hWnd, nCmdShow);
 		///////////////////////////////////////////////////////////////
-		FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin", false);
+		FBXtoBinary("../Original Assets//AnimatedBox/Box_Idle.fbx", "../Exports/Box_Idle.bin", true);
+		//FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin", false);
 		Skeleton skelly;
 		std::vector<unsigned int> indicies;
 		std::vector<PNTIWVertex> verts;
-		ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
+		ReadBinary("../Exports/Box_Idle.bin", &skelly, &indicies, &verts);
+		//ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
 		ID3D11Texture2D *k;
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
 		swapchain->Present(0, 0);
-		CreateDDSTextureFromFile(Device, L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds", (ID3D11Resource**)&k, &shaderResourceView);
+		CreateDDSTextureFromFile(Device, L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds", (ID3D11Resource**)&k, &shaderResourceView);
 		Render Bear(shaderResourceView, PVW, indicies, skelly.mJoints,verts, Devicecon, Device);
 		
 

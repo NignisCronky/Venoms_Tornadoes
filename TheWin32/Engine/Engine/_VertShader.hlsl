@@ -36,17 +36,17 @@ PixelShaderInput main(VertexShaderInput input)
 	PixelShaderInput output;
 	float4 pos = float4(input.pos.x, input.pos.y, input.pos.z, 1.0f);
 
-	//Transform the vertex position into projected space.
-	pos = mul(pos, model);
-	pos = mul(pos, view);
-	pos = mul(pos, projection);
-	//output.pos = pos;
-
 	//Animate based on bones
-	output.pos  = mul(boneOffset[input.boneIndice.x], pos) * input.blendWeight.x;
-	output.pos += mul(boneOffset[input.boneIndice.y], pos) * input.blendWeight.y;
-	output.pos += mul(boneOffset[input.boneIndice.z], pos) * input.blendWeight.z;
-	output.pos += mul(boneOffset[input.boneIndice.w], pos) * input.blendWeight.w;
+	//output.pos = mul(boneOffset[input.boneIndice.x], pos) * input.blendWeight.x;
+	//output.pos += mul(boneOffset[input.boneIndice.y], pos) * input.blendWeight.y;
+	//output.pos += mul(boneOffset[input.boneIndice.z], pos) * input.blendWeight.z;
+	//output.pos += mul(boneOffset[input.boneIndice.w], pos) * input.blendWeight.w;
+
+	//Transform the vertex position into projected space.
+	output.pos = mul(output.pos, model);
+	output.pos = mul(pos, model);
+	output.pos = mul(output.pos, view);
+	//output.pos = mul(output.pos, projection);
 
 	//Pass the color through without modification.
 	output.uv = float4(input.uv.x, input.uv.y, 1.0f, 1.0f);
