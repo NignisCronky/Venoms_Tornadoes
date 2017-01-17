@@ -119,8 +119,6 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 	Device->CreateRasterizerState(&_RasterDesc, &m_SolidFill);
 	
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-
-	
 }
 
 
@@ -147,9 +145,11 @@ void Render::Create()
 
 void Render::Set(ID3D11DeviceContext * Context)
 {
-	
 	Context->PSSetShaderResources(0, 1, &texViews);
 	Context->IASetIndexBuffer(m_VertIndex, DXGI_FORMAT_R32_UINT, 0);
+	UINT stride = sizeof(PNTIWVertex);
+	UINT offset = 0;
+	Context->IASetVertexBuffers(0, 1, &m_Vertexs, &stride, &offset);
 	Context->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)_Primative);
 	Context->IASetInputLayout(m_InputLayout);
 	Context->VSSetShader(m_VertexShader, 0, 0);
@@ -159,6 +159,4 @@ void Render::Set(ID3D11DeviceContext * Context)
 		Context->RSSetState(m_WireFrame);
 	else
 		Context->RSSetState(m_SolidFill);
-
-
 }
