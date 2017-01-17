@@ -40,7 +40,7 @@ public:
 
 	Render();
 
-	Render(ID3D11Texture2D *texture, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
+	Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext *Context, ID3D11Device *Device);
 
 	~Render();
 

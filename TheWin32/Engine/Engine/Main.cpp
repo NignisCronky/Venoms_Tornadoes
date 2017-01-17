@@ -4,9 +4,10 @@
 //&swapchain, &Device, NULL, &Devicecon, backbuffer
 
 IDXGISwapChain* swapchain;
-ID3D11Device * Device;
+ID3D11Device* Device;
 ID3D11DeviceContext* Devicecon;
-ID3D11RenderTargetView *backbuffer;
+ID3D11RenderTargetView* backbuffer;
+ID3D11ShaderResourceView* shaderResourceView;
 
 Pro_View_World PVW;
 
@@ -178,11 +179,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		std::vector<PNTIWVertex> verts;
 		ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
 		ID3D11Texture2D *k;
-		CreateDDSTextureFromFile(Device, "", k, , );
+		CreateDDSTextureFromFile(Device, L"", (ID3D11Resource**)&k, &shaderResourceView);
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
 		swapchain->Present(0, 0);
-		Render Bear(,PVW , indicies,skelly.mJoints,verts ,Devicecon ,Device);
+		Render Bear(shaderResourceView,PVW , indicies,skelly.mJoints,verts ,Devicecon ,Device);
 		
 
 

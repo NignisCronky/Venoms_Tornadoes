@@ -26,8 +26,15 @@ Render::Render()
 
 }
 
-Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
+Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
 {
+	//Use this shit before you draw
+	ID3D11ShaderResourceView* texViews[] = { shaderResourceView };
+	Context->PSSetShaderResources(0, 1, texViews);
+
+
+
+
 	Frame = 0;
 	// Grabs the view, and projection Passed in
 	// sets the world matrix to idenity
@@ -113,7 +120,7 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 
 	//Create ConstantBuffer for Texture
-	if(texture !=nullptr)
+	/*if(texture !=nullptr)
 	{
 		D3D11_BUFFER_DESC _Text;
 		D3D11_MAPPED_SUBRESOURCE _Resourse;
@@ -126,7 +133,7 @@ HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_Ver
 		Context->Map(m_Texture, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &_Resourse);
 		memcpy(_Resourse.pData, &texture, sizeof(texture));
 		Context->Unmap(m_Texture, NULL);
-	}
+	}*/
 }
 
 
