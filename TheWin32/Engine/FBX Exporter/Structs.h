@@ -171,7 +171,7 @@ struct MVPDCB
 	XMFLOAT4X4 Pro;
 	XMFLOAT4 LightDirection;
 	XMFLOAT4 LightColor;
-	std::vector<XMFLOAT4X4> Boneoffsets;
+	XMFLOAT4X4 Boneoffsets[100];
 
 	void UpdateDir(XMFLOAT4 LightDirection_)
 	{

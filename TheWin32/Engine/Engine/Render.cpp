@@ -28,6 +28,7 @@ Render::Render()
 
 Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<unsigned> VertIndex, std::vector<Joint> Bones, std::vector<PNTIWVertex> Vertexs, ID3D11DeviceContext * Context, ID3D11Device * Device)
 {
+	Frame = 0;
 	// Grabs the view, and projection Passed in
 	// sets the world matrix to idenity
 	this->ConstantBufferInfo.View = Matricies.View;
@@ -35,23 +36,29 @@ Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<
 	this->ConstantBufferInfo.View = Matricies.View;
 	this->ConstantBufferInfo.LightColor = DirectX::XMFLOAT4(0.4f, 0.1f, 0.8f, 1.0f);
 	this->ConstantBufferInfo.LightDirection = DirectX::XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-	this->ConstantBufferInfo.Boneoffsets = this->CalcBoneOffSets(Bones);
+	this->CalcBoneOffSets(Bones, this->ConstantBufferInfo.Boneoffsets);
 	DirectX::XMStoreFloat4x4(&this->m_WorldMatrix, DirectX::XMMatrixIdentity());
 
 	// creates and sets the vertex shader
-	Device->CreateVertexShader(&(_VertShader), ARRAYSIZE((_VertShader)), NULL, &m_VertexShader);
-	Device->CreatePixelShader(&(_PixShader), ARRAYSIZE((_PixShader)), NULL, &m_PixelShader);
+	Device->CreateVertexShader(&_VertShader, sizeof((_VertShader)), NULL, &m_VertexShader);
+	Device->CreatePixelShader(&_PixShader, sizeof((_PixShader)), NULL, &m_PixelShader);
+	Context->VSSetShader(m_VertexShader,0,0);
+	Context->PSSetShader(m_PixelShader,0,0);
+
+
 
 	// creates input layout 
 	D3D11_INPUT_ELEMENT_DESC INPUT_DESC[] =
 	{
-		{ "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "NORMALS",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UVS",          0, DXGI_FORMAT_R32G32_FLOAT,       0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BLENDWEIGHTS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 32, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "BONEINDICES",  0, DXGI_FORMAT_R32G32B32A32_UINT,  0, 48, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "NORMAL",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "UV",          0, DXGI_FORMAT_R32G32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICES",  0, DXGI_FORMAT_R32G32B32A32_UINT,  0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 }
 	};
-	Device->CreateInputLayout(INPUT_DESC, 5, _VertShader, sizeof(_VertShader), &m_InputLayout);
+
+	
+HRESULT error=Device->CreateInputLayout(INPUT_DESC, ARRAYSIZE(INPUT_DESC), &_VertShader, sizeof(_VertShader), &m_InputLayout);
 
 
 	// Creates vertex buffer
@@ -64,6 +71,9 @@ Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<
 	D3D11_SUBRESOURCE_DATA data;
 	data.pSysMem = &Vertexs[0];
 	Device->CreateBuffer(&VertBuffDesc, &data, &this->m_Vertexs);
+	m_VertIndexContainer = VertIndex;
+
+
 
 	//Creates Index buffer for verts
 	D3D11_BUFFER_DESC IndexBuffDesc;
@@ -99,8 +109,24 @@ Render::Render(ID3D11Texture2D * texture, Pro_View_World Matricies, std::vector<
 	_RasterDesc.CullMode = D3D11_CULL_NONE;
 	_RasterDesc.FillMode = D3D11_FILL_SOLID;
 	Device->CreateRasterizerState(&_RasterDesc, &m_SolidFill);
-
+	
 	_Primative = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+
+	//Create ConstantBuffer for Texture
+	if(texture !=nullptr)
+	{
+		D3D11_BUFFER_DESC _Text;
+		D3D11_MAPPED_SUBRESOURCE _Resourse;
+		ZeroMemory(&_Text, sizeof(_Text));
+		_Text.Usage = D3D11_USAGE_DYNAMIC;
+		_Text.ByteWidth = sizeof(texture);
+		_Text.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		_Text.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		Device->CreateBuffer(&_Text, NULL, &this->m_Texture);
+		Context->Map(m_Texture, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &_Resourse);
+		memcpy(_Resourse.pData, &texture, sizeof(texture));
+		Context->Unmap(m_Texture, NULL);
+	}
 }
 
 
@@ -127,6 +153,8 @@ void Render::Create()
 
 void Render::Set(ID3D11DeviceContext * Context)
 {
+	Context->IASetIndexBuffer(m_VertIndex, DXGI_FORMAT_R32_UINT, 0);
+	Context->IASetPrimitiveTopology((D3D11_PRIMITIVE_TOPOLOGY)_Primative);
 	Context->IASetInputLayout(m_InputLayout);
 	Context->VSSetShader(m_VertexShader, 0, 0);
 	Context->PSSetShader(m_PixelShader, 0, 0);
@@ -135,4 +163,8 @@ void Render::Set(ID3D11DeviceContext * Context)
 		Context->RSSetState(m_WireFrame);
 	else
 		Context->RSSetState(m_SolidFill);
+	if (m_Texture != nullptr)
+		Context->PSSetConstantBuffers(0, 0, &m_Texture);
+
+
 }

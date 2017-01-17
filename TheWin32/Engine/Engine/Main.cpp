@@ -128,7 +128,7 @@ void InitD3D(HWND hWnd)
 	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // this enables fullscreen switching with alt+enter
 
 	// create a Deviceice, Deviceice context and swap chain using the information in the scd struct
-	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &Device, NULL, &Devicecon);
+	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &Device, NULL, &Devicecon);
 
 	//////////////////////
 	// Back Buffer: renderTarget
@@ -172,18 +172,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 		ShowWindow(hWnd, nCmdShow);
 		///////////////////////////////////////////////////////////////
-		FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin");
+		FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin",false);
 		Skeleton skelly;
 		std::vector<unsigned int> indicies;
 		std::vector<PNTIWVertex> verts;
 		ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
-
+		ID3D11Texture2D *k;
+		CreateDDSTextureFromFile(Device, "", k, , );
 		InitD3D(hWnd);
 		SetUpMatrices(PVW);
-		 swapchain->Present(0, 0);
-
-
-
+		swapchain->Present(0, 0);
+		Render Bear(,PVW , indicies,skelly.mJoints,verts ,Devicecon ,Device);
+		
 
 
 
@@ -208,7 +208,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				//game code goes here
 			}
 
-			Box.Draw(backbuffer, Devicecon, PVW);
+			Bear.Draw(backbuffer, Devicecon, PVW);
 			swapchain->Present(0, 0);
 		}
 		//this is where we clean 3d
