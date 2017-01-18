@@ -23,7 +23,7 @@
 #define aspectratio (float(width) / float(height))
 #define verticalFOV (float(horizontalFOV) * float(aspectratio))
 #define zNear .1f
-#define zFar 100.0f
+#define zFar 500.0f
 
 struct Pro_View_World
 {

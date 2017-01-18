@@ -79,13 +79,15 @@ void FBXRenderer::Update(long long frame)
 	}
 	XMStoreFloat4x4(&m_constantBufferData.World, XMMatrixIdentity());
 	XMStoreFloat4x4(&m_constantBufferData.View, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(m_camera))));
-	m_constantBufferData.LightDirection = XMFLOAT4(10.0f * frame, 10.0f * frame, 10.0f * frame, 1.0f);
-	m_constantBufferData.LightColor = XMFLOAT4(1.5f * frame, 1.5f * frame, 1.5f * frame, 1.0f);
+	m_constantBufferData.LightDirection = XMFLOAT4(1.0f * (frame % skelly.mJoints[0].mAnimation.size()), -1.0f, 1.0f * (frame % skelly.mJoints[0].mAnimation.size()), 1.0f);
+	m_constantBufferData.LightColor = XMFLOAT4(0.0f, 1.5f * frame, 1.5f * frame, 1.0f);
+	//m_constantBufferData.LightDirection = XMFLOAT4(1.0f * (frame % skelly.mJoints[0].mAnimation.size()), -1.0f, 1.0f * (frame % skelly.mJoints[0].mAnimation.size()), 1.0f);
+	//m_constantBufferData.LightColor = XMFLOAT4(0.0f, 1.5f * frame, 1.5f * frame, 1.0f);
 }
 
 void FBXRenderer::LoadFBXFromFile(const char *fbx, const char *bin, const wchar_t *texturePath)
 {
-	FBXtoBinary(fbx, bin, true);
+	FBXtoBinary(fbx, bin, false);
 	ReadBinary(bin, &skelly, &indexes, &verts);
 	if (texturePath != NULL)
 	{
@@ -165,6 +167,8 @@ void FBXRenderer::Render()
 
 void FBXRenderer::ReleaseDeviceDependentResources(void)
 {
+	m_dev->Release();
+	m_devCon->Release();
 	m_inputLayout->Release();
 	m_vertexBuffer->Release();
 	m_indexBuffer->Release();
@@ -173,4 +177,5 @@ void FBXRenderer::ReleaseDeviceDependentResources(void)
 	m_constantBuffer->Release();
 	m_texture2D->Release();
 	m_texView->Release();
+	m_blendState->Release();
 }

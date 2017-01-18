@@ -15,6 +15,7 @@ IDXGISwapChain *SwapChain;
 ID3D11Device *Device;
 ID3D11DeviceContext *DeviceContext;
 ID3D11RenderTargetView* BackBuffer;
+ID3D11DepthStencilView* depth;
 Camera camera;
 
 FBXRenderer box;
@@ -32,6 +33,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 		FLOAT RedBackGround[4] = { 1.0f,0.0f,0.0f,1.0f };
 		DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
+		//DeviceContext->ClearDepthStencilView(depth, D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
@@ -45,7 +47,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		//todo:: unspagatti
 		box.Update(*camera.GetKeyframe());
+		bear.Update(*camera.GetKeyframe());
 		box.Render();
+		bear.Render();
 
 		SwapChain->Present(0, 0);
 
@@ -88,6 +92,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			// Perform error handling here!
 			pBuffer->Release();
 
+			//DeviceContext->OMSetRenderTargets(1, &BackBuffer, depth);
 			DeviceContext->OMSetRenderTargets(1, &BackBuffer, NULL);
 
 			// Set up the viewport.
@@ -186,8 +191,35 @@ bool InitGraphics(HWND& hWnd)
 	ID3D11Texture2D *BackBufferTexture;
 	SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&BackBufferTexture);
 	Device->CreateRenderTargetView(BackBufferTexture, NULL, &BackBuffer);
-	DeviceContext->OMSetRenderTargets(1, &BackBuffer, NULL);
 
+	// Create a depth stencil view for use with 3D rendering if needed.
+		// Create depth stencil texture
+	D3D11_TEXTURE2D_DESC descDepth;
+	ZeroMemory(&descDepth, sizeof(descDepth));
+	descDepth.Width = width;
+	descDepth.Height = height;
+	descDepth.MipLevels = 1;
+	descDepth.ArraySize = 1;
+	descDepth.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Usage = D3D11_USAGE_DEFAULT;
+	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	descDepth.CPUAccessFlags = 0;
+	descDepth.MiscFlags = 0;
+	ID3D11Texture2D* depthStencil;
+	Device->CreateTexture2D(&descDepth, nullptr, &depthStencil);
+
+	// Create the depth stencil view
+	D3D11_DEPTH_STENCIL_VIEW_DESC depthStencilViewDesc;
+	ZeroMemory(&depthStencilViewDesc, sizeof(depthStencilViewDesc));
+	depthStencilViewDesc.Format = descDepth.Format;
+	depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	depthStencilViewDesc.Texture2D.MipSlice = 0;
+
+	Device->CreateDepthStencilView(depthStencil, &depthStencilViewDesc, &depth);
+	//DeviceContext->OMSetRenderTargets(1, &BackBuffer, depth);
+	DeviceContext->OMSetRenderTargets(1, &BackBuffer, NULL);
 
 	D3D11_VIEWPORT ViewPort;
 	ZeroMemory(&ViewPort, sizeof(ViewPort));
@@ -196,6 +228,7 @@ bool InitGraphics(HWND& hWnd)
 	ViewPort.Width = width;
 	ViewPort.Height = height;
 	DeviceContext->RSSetViewports(1, &ViewPort);
+
 	return true;
 }
 
@@ -205,6 +238,7 @@ void CleanD3D()
 	BackBuffer->Release();
 	Device->Release();
 	DeviceContext->Release();
+	depth->Release();
 }
 
 // ;-^--------------------) kill me

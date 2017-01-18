@@ -50,7 +50,7 @@ struct PNTIWVertex
 		for (unsigned int i = 0; i < 4; ++i)
 		{
 			if (mBlendingWeight[i] != rhs.mBlendingWeight[i] ||
-				fabsf(mBlendingIndex[i] - rhs.mBlendingIndex[i]) > 0.001)
+				fabsf(float(mBlendingIndex[i] - rhs.mBlendingIndex[i])) > 0.001f)
 			{
 				sameBlendingInfo = false;
 				break;

@@ -18,5 +18,7 @@ struct Camera
 	XMFLOAT4X4* Camera::GetCamera() { return &m_camera; }
 
 private:
-	float cooldown;
+	float Keycooldown;
+	float Changecooldown;
+	bool change;
 };

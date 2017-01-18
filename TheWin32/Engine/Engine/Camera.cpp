@@ -9,14 +9,15 @@ void Camera::Create(XMFLOAT4X4 cam)
 	m_camera = cam;
 	m_timer.Reset();
 	delta_time = 0.0f;
-	cooldown = 0.0f;
-	wireFram = false;
+	Keycooldown = Changecooldown = 0.0f;
+	wireFram = change = false;
 }
 
 void Camera::UpdateCamera(float const moveSpd, float const rotSpd)
 {
 	delta_time= m_timer.GetElapsedTime();
-	cooldown -= delta_time;
+	Keycooldown -= delta_time;
+	Changecooldown -= delta_time;
 	m_timer.Reset();
 	//W
 	if (GetAsyncKeyState(0x57))
@@ -93,10 +94,16 @@ void Camera::UpdateCamera(float const moveSpd, float const rotSpd)
 		m_camera._43 = pos.z;
 	}
 	//Right key
-	if (cooldown < 0.0f) //GetAsyncKeyState(VK_RIGHT))
+	if (Keycooldown < 0.0f && (GetAsyncKeyState(VK_RIGHT) || change))
 	{
-		//keyframe++;
-		cooldown = 1.0f/30.0f;
+		keyframe++;
+		Keycooldown = 1.0f/30.0f;
+	}
+	//Left key
+	if (Changecooldown < 0.0f && GetAsyncKeyState(VK_LEFT))
+	{
+		change = !change;
+		Changecooldown = 3.0f / 30.0f;
 	}
 	//1 Key
 	if (GetAsyncKeyState(0x31) & 1)
