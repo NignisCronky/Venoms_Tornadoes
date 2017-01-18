@@ -3,28 +3,33 @@
 #define Height_ 400
 #include <d3d11.h>
 #pragma comment (lib, "d3d11.lib")
-
+#include "FBXRenderer.h"
 
 
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd);
-bool Init(HWND &hWnd);
+bool Init(HWND &hWnd, FBXRenderer Array[3]);
 bool InitCamera();
 bool InitGraphics(HWND& hWnd);
 void CleanD3D();
 void RenderFrame();
+bool InitMeshes(FBXRenderer &Box, FBXRenderer &Bear, FBXRenderer &wizard);
 
 IDXGISwapChain *SwapChain;
 ID3D11Device *Device;
 ID3D11DeviceContext *DeviceContext;
 ID3D11RenderTargetView* BackBuffer;
+XMFLOAT4X4 Camera;
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	HWND WindowHandle;
 	WindowsSetup(WindowHandle, hInstance, nShowCmd);
-	Init(WindowHandle);
+
+	FBXRenderer BoxBearWizard[3] = {FBXRenderer(*Device, Camera, *DeviceContext),FBXRenderer(*Device, Camera, *DeviceContext),FBXRenderer(*Device, Camera, *DeviceContext)};
+	Init(WindowHandle, BoxBearWizard);
 
 	MSG msg = { 0 };
 	while (TRUE)
@@ -72,20 +77,20 @@ bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
 	ShowWindow(WindowHandle, nShowCmd);
 	return true;
 }
-bool Init(HWND& hWnd)
+bool Init(HWND& hWnd, FBXRenderer Array[3])
 {
 
 	InitGraphics(hWnd);
-
-
+	InitMeshes(Array[0], Array[1], Array[2]);
 
 	return true;
 }
 
 bool InitCamera()
 {
-	return true;
+	return false;
 }
+
 
 bool InitGraphics(HWND& hWnd)
 {
@@ -129,6 +134,34 @@ void RenderFrame()
 	DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
 
 	SwapChain->Present(0, 0);
+}
+
+bool InitMeshes(FBXRenderer &Box, FBXRenderer &Bear, FBXRenderer &wizard)
+{
+	FBXRenderer Temp(*Device, Camera, *DeviceContext);
+	// fbx file path, binary path, texture
+	Temp.LoadFBXFromFile(
+		"../Original Assets//AnimatedBox/Box_Idle.fbx",
+		"../Exports/Box_Idle.bin" ,
+		L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds"
+		);
+	Box = Temp;
+	//todo: fix escape sequences
+	Temp.LoadFBXFromFile(
+		"../Original Assets/Teddy/Teddy_Idle.fbx",
+		"../Exports/Teddy_Idle.bin",
+		L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds"
+		);
+	Bear = Temp;
+
+	Temp.LoadFBXFromFile(
+		"../Original Assets/Mage/Idle.fbx",
+		"../Exports/Idle.bin",
+		L"../Original Assets/Mage/Battle Mage with Rig and textures.fbm/PPG_3D_Player_D.dds"
+		);
+	wizard = Temp;
+
+	return false;
 }
 
 

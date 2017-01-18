@@ -1,8 +1,9 @@
 #include "FBXRenderer.h"
-FBXRenderer::FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera)
+FBXRenderer::FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera,ID3D11DeviceContext &DevCon)
 {
 	m_dev = &dev;
 	m_camera = &camera;
+	m_devCon = &DevCon;
 }
 
 // Initializes view parameters when the window size changes.
