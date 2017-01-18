@@ -70,10 +70,10 @@ void Camera::UpdateCamera(float const moveSpd, float const rotSpd)
 	if (GetAsyncKeyState(VK_RBUTTON))
 	{
 		POINT mousePos;
+		//SetCursorPos(width / 2, height / 2);
 		GetCursorPos(&mousePos);
-		SetCursorPos(WIDTH_P / 2, HEIGHT_P / 2);
-		float dx = (float)WIDTH_P / 2 - mousePos.x;
-		float dy = (float)HEIGHT_P / 2 - mousePos.y;
+		float dx = (float)width / 2 - mousePos.x;
+		float dy = (float)height / 2 - mousePos.y;
 
 		DirectX::XMFLOAT4 pos = DirectX::XMFLOAT4(m_camera._41, m_camera._42, m_camera._43, m_camera._44);
 
@@ -93,10 +93,10 @@ void Camera::UpdateCamera(float const moveSpd, float const rotSpd)
 		m_camera._43 = pos.z;
 	}
 	//Right key
-	if (GetAsyncKeyState(VK_RIGHT) && cooldown < 0.0f)
+	if (cooldown < 0.0f) //GetAsyncKeyState(VK_RIGHT))
 	{
-		keyframe++;
-		cooldown = 10.0f;
+		//keyframe++;
+		cooldown = 1.0f/30.0f;
 	}
 	//1 Key
 	if (GetAsyncKeyState(0x31) & 1)

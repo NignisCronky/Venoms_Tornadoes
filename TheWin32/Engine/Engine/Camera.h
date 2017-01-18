@@ -6,7 +6,6 @@ struct Camera
 	XMFLOAT4X4 m_camera;
 	Timer m_timer;
 	float delta_time;
-	float cooldown;
 	long long keyframe;
 	bool wireFram;
 
@@ -17,4 +16,7 @@ struct Camera
 	long long* Camera::GetKeyframe() { return &keyframe; }
 	bool* Camera::GetWireframe() { return &wireFram; }
 	XMFLOAT4X4* Camera::GetCamera() { return &m_camera; }
+
+private:
+	float cooldown;
 };

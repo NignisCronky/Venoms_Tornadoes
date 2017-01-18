@@ -5,7 +5,6 @@
 using namespace DirectX;
 struct FBXRenderer
 {
-	FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera);
 	FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera, ID3D11DeviceContext &DevCon);
 	FBXRenderer();
 	void Create(ID3D11Device &dev, XMFLOAT4X4 &camera, ID3D11DeviceContext &Con);

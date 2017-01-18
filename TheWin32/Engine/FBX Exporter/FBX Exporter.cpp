@@ -143,7 +143,7 @@ void ProcessControlPoints(FbxNode* inNode)
 		CtrlPoint currCtrlPoint;
 		XMFLOAT3 currPosition;
 		currPosition.x = static_cast<float>(currMesh->GetControlPointAt(i).mData[0]);
-		currPosition.y = static_cast<float>(currMesh->GetControlPointAt(i).mData[1]);
+		currPosition.y = -1.0f * static_cast<float>(currMesh->GetControlPointAt(i).mData[1]);
 		currPosition.z = -1.0f * static_cast<float>(currMesh->GetControlPointAt(i).mData[2]);
 		currCtrlPoint.mPosition = currPosition;
 		mControlPoints[i] = currCtrlPoint;

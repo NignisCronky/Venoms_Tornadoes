@@ -15,24 +15,15 @@
 
 #pragma comment (lib, "d3d11.lib")
 
-
-
-#define WIDTH_W  1024
-#define HEIGHT_W 768
-
-#define WIDTH_P  1024
-#define HEIGHT_P 768
-
-
-
-
-struct SmartVert {
-	float pos[3];
-	float norms[3];
-	float uv[2];
-	float blendWeights[4];
-	unsigned boneIndices[4];
-};
+#define horizontalFOV 100
+#define PI 3.141592653f
+#define width 1000
+#define height 500
+#define total (width * height)
+#define aspectratio (float(width) / float(height))
+#define verticalFOV (float(horizontalFOV) * float(aspectratio))
+#define zNear .1f
+#define zFar 100.0f
 
 struct Pro_View_World
 {
@@ -40,5 +31,3 @@ struct Pro_View_World
 	DirectX::XMFLOAT4X4 Pro;
 	DirectX::XMFLOAT4X4 View;
 };
-
-

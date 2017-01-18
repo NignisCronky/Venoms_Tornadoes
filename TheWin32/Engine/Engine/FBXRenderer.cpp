@@ -10,25 +10,37 @@ FBXRenderer::FBXRenderer()
 {
 }
 
-void FBXRenderer::Create(ID3D11Device & dev, XMFLOAT4X4 & camera, ID3D11DeviceContext &Con)
+void FBXRenderer::Create(ID3D11Device &dev, XMFLOAT4X4 &camera, ID3D11DeviceContext &Con)
 {
 	m_dev = &dev;
 	m_camera = &camera;
 	m_devCon = &Con;
 }
 
+XMFLOAT4X4 PerspectiveProjection()
+{
+	float xScale, yScale;
+	yScale = float(1.0 / tan((.5 * float(verticalFOV)) * PI / 180.0));
+	xScale = yScale * aspectratio;
+	XMFLOAT4X4 mat(xScale, 0, 0, 0,
+		0, yScale, 0, 0,
+		0, 0, zFar / (zFar - zNear), 1,
+		0, 0, -(zFar * zNear) / (zFar - zNear), 0);
+	return mat;
+}
+
 // Initializes view parameters when the window size changes.
 void FBXRenderer::CreateWindowSizeDependentResources(void)
 {
-	float aspectRatio = WIDTH_P / HEIGHT_P;
-	float fovAngleY = 70.0f * XM_PI / 180.0f;
+	//float aspectRatio = width / height;
+	//float fovAngleY = 70.0f * XM_PI / 180.0f;
 
-	// This is a simple example of change that can be made when the app is in
-	// portrait or snapped view.
-	if (aspectRatio < 1.0f)
-	{
-		fovAngleY *= 2.0f;
-	}
+	//// This is a simple example of change that can be made when the app is in
+	//// portrait or snapped view.
+	//if (aspectRatio < 1.0f)
+	//{
+	//	fovAngleY *= 2.0f;
+	//}
 
 	// Note that the OrientationTransform3D matrix is post-multiplied here
 	// in order to correctly orient the scene to match the display orientation.
@@ -37,16 +49,15 @@ void FBXRenderer::CreateWindowSizeDependentResources(void)
 	// this transform should not be applied.
 
 	// This sample makes use of a right-handed coordinate system using row-major matrices.
-	XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovLH(fovAngleY, aspectRatio, 0.01f, 100.0f);
+	//XMMATRIX perspectiveMatrix = XMMatrixPerspectiveFovLH(fovAngleY, aspectRatio, 0.01f, 100.0f);
 
-	XMStoreFloat4x4(&m_constantBufferData.Pro, XMMatrixTranspose(perspectiveMatrix));
+	XMStoreFloat4x4(&m_constantBufferData.Pro, XMMatrixTranspose(XMMatrixPerspectiveFovLH(verticalFOV, aspectratio, zNear, zFar)));
 
 	XMStoreFloat4x4(&m_constantBufferData.View, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(m_camera))));
 }
 
 void FBXRenderer::Update(long long frame)
 {
-
 	// for each bone, create a matrix and push it onto the vector
 	for (unsigned i = 0; i < (unsigned)skelly.mJoints.size(); i++)
 	{
@@ -59,7 +70,7 @@ void FBXRenderer::Update(long long frame)
 		else
 		{
 			XMMATRIX M = XMLoadFloat4x4(&skelly.mJoints[i].globalBindposeInverseMatrix);
-			XMMATRIX C = XMLoadFloat4x4(&skelly.mJoints[i].mAnimation[frame].mGlobalTransform);
+			XMMATRIX C = XMLoadFloat4x4(&skelly.mJoints[i].mAnimation[frame % skelly.mJoints[i].mAnimation.size()].mGlobalTransform);
 			XMMATRIX Temp = XMMatrixMultiply(M, C);
 			XMFLOAT4X4 T;
 			XMStoreFloat4x4(&T, XMMatrixTranspose(Temp));
@@ -74,7 +85,7 @@ void FBXRenderer::Update(long long frame)
 
 void FBXRenderer::LoadFBXFromFile(const char *fbx, const char *bin, const wchar_t *texturePath)
 {
-	FBXtoBinary(fbx, bin, false);
+	FBXtoBinary(fbx, bin, true);
 	ReadBinary(bin, &skelly, &indexes, &verts);
 	if (texturePath != NULL)
 	{
@@ -94,18 +105,16 @@ void FBXRenderer::CreateDeviceDependentResources(void)
 	static const D3D11_INPUT_ELEMENT_DESC vertDesc[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "UV", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "UV", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "BLENDINDICE", 0, DXGI_FORMAT_R32G32B32_UINT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-
 	};
-
 	m_dev->CreateInputLayout(vertDesc, ARRAYSIZE(vertDesc), _VertShader, sizeof(_VertShader), &m_inputLayout);
 
 	m_dev->CreatePixelShader(&_PixShader, sizeof(_PixShader), nullptr, &m_pixelShader);
 
-	CD3D11_BUFFER_DESC constantBufferDesc(sizeof(PNTIWVertex), D3D11_BIND_CONSTANT_BUFFER);
+	CD3D11_BUFFER_DESC constantBufferDesc(sizeof(MVPDCB), D3D11_BIND_CONSTANT_BUFFER);
 	m_dev->CreateBuffer(&constantBufferDesc, nullptr, &m_constantBuffer);
 
 	D3D11_SUBRESOURCE_DATA m_vertexBufferData = { 0 };

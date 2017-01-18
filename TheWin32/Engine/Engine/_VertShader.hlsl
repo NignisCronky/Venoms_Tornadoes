@@ -36,10 +36,11 @@ PixelShaderInput main(VertexShaderInput input)
 	float4 pos = float4(input.pos.x, input.pos.y, input.pos.z, 1.0f);
 
 	//Animate based on bones
-	//output.pos = mul(boneOffset[input.boneIndice.x], pos) * input.blendWeight.x;
-	//output.pos += mul(boneOffset[input.boneIndice.y], pos) * input.blendWeight.y;
-	//output.pos += mul(boneOffset[input.boneIndice.z], pos) * input.blendWeight.z;
-	//output.pos += mul(boneOffset[input.boneIndice.w], pos) * input.blendWeight.w;
+	float4 pos2 = pos;
+	pos = mul(boneOffset[input.boneIndice.x], pos2) * input.blendWeight.x;
+	pos += mul(boneOffset[input.boneIndice.y], pos2) * input.blendWeight.y;
+	pos += mul(boneOffset[input.boneIndice.z], pos2) * input.blendWeight.z;
+	pos += mul(boneOffset[input.boneIndice.w], pos2) * input.blendWeight.w;
 
 	//Transform the vertex position into projected space.
 	//output.pos = mul(output.pos, model);
@@ -49,7 +50,7 @@ PixelShaderInput main(VertexShaderInput input)
 
 	//Pass the color through without modification.
 	output.uv = float4(input.uv.x, input.uv.y, 1.0f, 1.0f);
-	output.norm = float4(input.norm.x, input.norm.y, input.norm.z, 1.0f);
+	output.norm = float4(input.norm.x, input.norm.y, input.norm.z, 0.0f);
 
 	output.vLightDir = vLightDir;
 	output.vLightColor = vLightColor;

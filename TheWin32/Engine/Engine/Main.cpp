@@ -1,42 +1,38 @@
-#include <windows.h> 
-#include "FBXRenderer.h"
-#define Width_ 500
-#define Height_ 400
-#include <d3d11.h>
-#pragma comment (lib, "d3d11.lib")
+#pragma once
+#include "Globals.h"
 #include "FBXRenderer.h"
 #include "Camera.h"
+#include <d3d11.h>
+#pragma comment (lib, "d3d11.lib")
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd);
-bool Init(HWND &hWnd, FBXRenderer Array[3]);
-bool InitCamera();
+bool Init(HWND &hWnd);
 bool InitGraphics(HWND& hWnd);
 void CleanD3D();
-void RenderFrame();
-bool InitMeshes(FBXRenderer &Box, FBXRenderer &Bear, FBXRenderer &wizard);
 
 IDXGISwapChain *SwapChain;
 ID3D11Device *Device;
 ID3D11DeviceContext *DeviceContext;
 ID3D11RenderTargetView* BackBuffer;
-Camera _Camera;
-XMFLOAT4X4 m_cam;
+Camera camera;
 
-FBXRenderer bear;
 FBXRenderer box;
+FBXRenderer bear;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	HWND WindowHandle;
 	WindowsSetup(WindowHandle, hInstance, nShowCmd);
 
-	FBXRenderer BoxBearWizard[3] = { FBXRenderer(*Device, _Camera.m_camera, *DeviceContext),FBXRenderer(*Device, _Camera.m_camera, *DeviceContext),FBXRenderer(*Device, _Camera.m_camera, *DeviceContext) };
-	Init(WindowHandle, BoxBearWizard);
+	Init(WindowHandle);
 
 	MSG msg = { 0 };
 	while (TRUE)
 	{
+		FLOAT RedBackGround[4] = { 1.0f,0.0f,0.0f,1.0f };
+		DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
+
 		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
@@ -44,19 +40,70 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (msg.message == WM_QUIT)
 				break;
 		}
-		_Camera.UpdateCamera(10.0f, 10.0f);
-		RenderFrame();
+
+		camera.UpdateCamera(10.0f, 10.0f);
 
 		//todo:: unspagatti
-		BoxBearWizard[0].Update(0);
-		BoxBearWizard[0].Render();
+		box.Update(*camera.GetKeyframe());
+		box.Render();
+
 		SwapChain->Present(0, 0);
+
+		//Black Magic to make camera smooth, do not touch
+		if (GetAsyncKeyState(VK_RBUTTON))
+			SetCursorPos(width / 2, height / 2);
 	}
 }
+
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
+	case WM_SIZE:
+	{
+		if (SwapChain)
+		{
+			ID3D11RenderTargetView* nullViews[] = { nullptr };
+			DeviceContext->OMSetRenderTargets(ARRAYSIZE(nullViews), nullViews, nullptr);
+			DeviceContext->Flush();
+
+			// Release all outstanding references to the swap chain's buffers.
+			BackBuffer->Release();
+
+			HRESULT hr;
+			// Preserve the existing buffer count and format.
+			// Automatically choose the width and height to match the client rect for HWNDs.
+			hr = SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+
+			// Perform error handling here!
+
+			// Get buffer and create a render-target-view.
+			ID3D11Texture2D* pBuffer;
+			hr = SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+				(void**)&pBuffer);
+			// Perform error handling here!
+
+			hr = Device->CreateRenderTargetView(pBuffer, NULL,
+				&BackBuffer);
+			// Perform error handling here!
+			pBuffer->Release();
+
+			DeviceContext->OMSetRenderTargets(1, &BackBuffer, NULL);
+
+			// Set up the viewport.
+			D3D11_VIEWPORT vp;
+			vp.Width = width;
+			vp.Height = height;
+			//vp.MinDepth = 0.0f;
+			//vp.MaxDepth = 1.0f;
+			vp.TopLeftX = 0;
+			vp.TopLeftY = 0;
+			DeviceContext->RSSetViewports(1, &vp);
+			//box.CreateWindowSizeDependentResources();
+			//bear.CreateWindowSizeDependentResources();
+		}
+		return 1;
+	}
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);
@@ -66,6 +113,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 
 	return DefWindowProc(hWnd, message, wParam, lParam);
 }
+
 bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
 {
 
@@ -80,29 +128,48 @@ bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
 	WindowsClassDesc.lpszClassName = L"WindowClass1";
 	RegisterClassEx(&WindowsClassDesc);
 
-	RECT wr = { 0, 0, Width_, Height_ };
+	RECT wr = { 0, 0, width, height };
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
 	WindowHandle = CreateWindowEx(NULL, L"WindowClass1", L"Jordan & Logano Schorch", WS_OVERLAPPEDWINDOW, 50, 50, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 	ShowWindow(WindowHandle, nShowCmd);
 	return true;
 }
-bool Init(HWND& hWnd, FBXRenderer Array[3])
+
+bool Init(HWND& hWnd)
 {
 	InitGraphics(hWnd);
-	InitCamera();
-	InitMeshes(Array[0], Array[1], Array[2]);
 
+	//Initialize Camera
+	camera.Create(XMFLOAT4X4(
+		1.0f, 0, 0, 0,
+		0, 1.0f, 0, 0,
+		0, 0, 1.0f, 0,
+		0, 0, -10.0f, 1.0f
+	));
 
+	//Initialize fbx objects
+	box.Create(*Device, camera.m_camera, *DeviceContext);
+	box.LoadFBXFromFile(
+		"../Original Assets/AnimatedBox/Box_Idle.fbx",
+		"../Exports/Box_Idle.bin",
+		L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds"
+	);
+
+	bear.Create(*Device, camera.m_camera, *DeviceContext);
+	bear.LoadFBXFromFile(
+		"../Original Assets/Teddy/Teddy_Idle.fbx",
+		"../Exports/Teddy_Idle.bin",
+		L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds"
+	);
+
+	/*wizard.Create(*Device, _Camera.m_camera, *DeviceContext);
+	wizard.LoadFBXFromFile(
+		"../Original Assets/Mage/Idle.fbx",
+		"../Exports/Idle.bin",
+		L"../Original Assets/Mage/Battle Mage with Rig and textures.fbm/PPG_3D_Player_D.dds"
+	);*/
 	return true;
 }
-
-bool InitCamera()
-{
-	DirectX::XMStoreFloat4x4(&m_cam, DirectX::XMMatrixIdentity());
-	_Camera.Create(m_cam);
-	return true;
-}
-
 
 bool InitGraphics(HWND& hWnd)
 {
@@ -126,8 +193,8 @@ bool InitGraphics(HWND& hWnd)
 	ZeroMemory(&ViewPort, sizeof(ViewPort));
 	ViewPort.TopLeftX = 0;
 	ViewPort.TopLeftY = 0;
-	ViewPort.Width = 800;
-	ViewPort.Height = 600;
+	ViewPort.Width = width;
+	ViewPort.Height = height;
 	DeviceContext->RSSetViewports(1, &ViewPort);
 	return true;
 }
@@ -139,45 +206,6 @@ void CleanD3D()
 	Device->Release();
 	DeviceContext->Release();
 }
-
-void RenderFrame()
-{
-	FLOAT RedBackGround[4] = { 1.0f,0.0f,0.0f,1.0f };
-	DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
-
-
-}
-
-bool InitMeshes(FBXRenderer &Box, FBXRenderer &Bear, FBXRenderer &wizard)
-{
-	// fbx file path, binary path, texture
-	Box.Create(*Device, _Camera.m_camera, *DeviceContext);
-	Box.LoadFBXFromFile(
-		"../Original Assets/AnimatedBox/Box_Idle.fbx",
-		"../Exports/Box_Idle.bin",
-		L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds"
-		);
-
-	Bear.Create(*Device, _Camera.m_camera, *DeviceContext);
-	Bear.LoadFBXFromFile(
-		"../Original Assets/Teddy/Teddy_Idle.fbx",
-		"../Exports/Teddy_Idle.bin",
-		L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds"
-		);
-
-	wizard.Create(*Device, _Camera.m_camera, *DeviceContext);
-	wizard.LoadFBXFromFile(
-		"../Original Assets/Mage/Idle.fbx",
-		"../Exports/Idle.bin",
-		L"../Original Assets/Mage/Battle Mage with Rig and textures.fbm/PPG_3D_Player_D.dds"
-		);
-
-
-
-
-	return true;
-}
-
 
 // ;-^--------------------) kill me
 #pragma region IsKill
