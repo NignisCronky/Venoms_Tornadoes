@@ -1,11 +1,10 @@
 #include <windows.h> 
+#include "FBXRenderer.h"
 #define Width_ 500
 #define Height_ 400
 #include <d3d11.h>
 #pragma comment (lib, "d3d11.lib")
 #include "FBXRenderer.h"
-
-
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd);
@@ -22,6 +21,8 @@ ID3D11DeviceContext *DeviceContext;
 ID3D11RenderTargetView* BackBuffer;
 XMFLOAT4X4 Camera;
 
+FBXRenderer bear;
+FBXRenderer box;
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
@@ -79,16 +80,16 @@ bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
 }
 bool Init(HWND& hWnd, FBXRenderer Array[3])
 {
-
 	InitGraphics(hWnd);
 	InitMeshes(Array[0], Array[1], Array[2]);
+
+	
 
 	return true;
 }
 
 bool InitCamera()
 {
-	return false;
 }
 
 

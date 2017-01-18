@@ -6,6 +6,16 @@ FBXRenderer::FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera,ID3D11DeviceConte
 	m_devCon = &DevCon;
 }
 
+FBXRenderer::FBXRenderer()
+{
+}
+
+void FBXRenderer::Create(ID3D11Device & dev, XMFLOAT4X4 & camera)
+{
+	m_dev = &dev;
+	m_camera = &camera;
+}
+
 // Initializes view parameters when the window size changes.
 void FBXRenderer::CreateWindowSizeDependentResources(void)
 {
