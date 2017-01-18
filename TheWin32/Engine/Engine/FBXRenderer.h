@@ -6,6 +6,8 @@ using namespace DirectX;
 struct FBXRenderer
 {
 	FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera);
+	FBXRenderer();
+	void Create(ID3D11Device &dev, XMFLOAT4X4 &camera);
 	void CreateDeviceDependentResources(void);
 	void CreateWindowSizeDependentResources(void);
 	void LoadFBXFromFile(const char *fbx, const char *bin, const wchar_t *texturePath);
