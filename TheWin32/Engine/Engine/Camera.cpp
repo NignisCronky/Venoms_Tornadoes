@@ -13,7 +13,7 @@ void Camera::Create(XMFLOAT4X4 cam)
 	wireFram = false;
 }
 
-void Camera::UpdateCamera(float const moveSpd, float const rotSpd, float delta_time)
+void Camera::UpdateCamera(float const moveSpd, float const rotSpd)
 {
 	delta_time= m_timer.GetElapsedTime();
 	cooldown -= delta_time;

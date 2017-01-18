@@ -5,6 +5,7 @@
 #include <d3d11.h>
 #pragma comment (lib, "d3d11.lib")
 #include "FBXRenderer.h"
+#include "Camera.h"
 
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd);
@@ -19,7 +20,8 @@ IDXGISwapChain *SwapChain;
 ID3D11Device *Device;
 ID3D11DeviceContext *DeviceContext;
 ID3D11RenderTargetView* BackBuffer;
-XMFLOAT4X4 Camera;
+Camera _Camera;
+XMFLOAT4X4 m_cam;
 
 FBXRenderer bear;
 FBXRenderer box;
@@ -29,7 +31,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND WindowHandle;
 	WindowsSetup(WindowHandle, hInstance, nShowCmd);
 
-	FBXRenderer BoxBearWizard[3] = {FBXRenderer(*Device, Camera, *DeviceContext),FBXRenderer(*Device, Camera, *DeviceContext),FBXRenderer(*Device, Camera, *DeviceContext)};
+	FBXRenderer BoxBearWizard[3] = { FBXRenderer(*Device, _Camera.m_camera, *DeviceContext),FBXRenderer(*Device, _Camera.m_camera, *DeviceContext),FBXRenderer(*Device, _Camera.m_camera, *DeviceContext) };
 	Init(WindowHandle, BoxBearWizard);
 
 	MSG msg = { 0 };
@@ -42,7 +44,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			if (msg.message == WM_QUIT)
 				break;
 		}
+		_Camera.UpdateCamera(10.0f, 10.0f);
 		RenderFrame();
+
+		//todo:: unspagatti
+		BoxBearWizard[0].Update(0);
+		BoxBearWizard[0].Render();
+		SwapChain->Present(0, 0);
 	}
 }
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -81,15 +89,18 @@ bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
 bool Init(HWND& hWnd, FBXRenderer Array[3])
 {
 	InitGraphics(hWnd);
+	InitCamera();
 	InitMeshes(Array[0], Array[1], Array[2]);
 
-	
 
 	return true;
 }
 
 bool InitCamera()
 {
+	DirectX::XMStoreFloat4x4(&m_cam, DirectX::XMMatrixIdentity());
+	_Camera.Create(m_cam);
+	return true;
 }
 
 
@@ -103,7 +114,7 @@ bool InitGraphics(HWND& hWnd)
 	SwapChainDesc.OutputWindow = hWnd;
 	SwapChainDesc.SampleDesc.Count = 4;
 	SwapChainDesc.Windowed = TRUE;
-	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
+	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
 
 	ID3D11Texture2D *BackBufferTexture;
 	SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&BackBufferTexture);
@@ -134,35 +145,37 @@ void RenderFrame()
 	FLOAT RedBackGround[4] = { 1.0f,0.0f,0.0f,1.0f };
 	DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
 
-	SwapChain->Present(0, 0);
+
 }
 
 bool InitMeshes(FBXRenderer &Box, FBXRenderer &Bear, FBXRenderer &wizard)
 {
-	FBXRenderer Temp(*Device, Camera, *DeviceContext);
 	// fbx file path, binary path, texture
-	Temp.LoadFBXFromFile(
-		"../Original Assets//AnimatedBox/Box_Idle.fbx",
-		"../Exports/Box_Idle.bin" ,
+	Box.Create(*Device, _Camera.m_camera, *DeviceContext);
+	Box.LoadFBXFromFile(
+		"../Original Assets/AnimatedBox/Box_Idle.fbx",
+		"../Exports/Box_Idle.bin",
 		L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds"
 		);
-	Box = Temp;
-	//todo: fix escape sequences
-	Temp.LoadFBXFromFile(
+
+	Bear.Create(*Device, _Camera.m_camera, *DeviceContext);
+	Bear.LoadFBXFromFile(
 		"../Original Assets/Teddy/Teddy_Idle.fbx",
 		"../Exports/Teddy_Idle.bin",
 		L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds"
 		);
-	Bear = Temp;
 
-	Temp.LoadFBXFromFile(
+	wizard.Create(*Device, _Camera.m_camera, *DeviceContext);
+	wizard.LoadFBXFromFile(
 		"../Original Assets/Mage/Idle.fbx",
 		"../Exports/Idle.bin",
 		L"../Original Assets/Mage/Battle Mage with Rig and textures.fbm/PPG_3D_Player_D.dds"
 		);
-	wizard = Temp;
 
-	return false;
+
+
+
+	return true;
 }
 
 

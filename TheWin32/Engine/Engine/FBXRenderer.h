@@ -8,7 +8,7 @@ struct FBXRenderer
 	FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera);
 	FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera, ID3D11DeviceContext &DevCon);
 	FBXRenderer();
-	void Create(ID3D11Device &dev, XMFLOAT4X4 &camera);
+	void Create(ID3D11Device &dev, XMFLOAT4X4 &camera, ID3D11DeviceContext &Con);
 	void CreateDeviceDependentResources(void);
 	void CreateWindowSizeDependentResources(void);
 	void LoadFBXFromFile(const char *fbx, const char *bin, const wchar_t *texturePath);

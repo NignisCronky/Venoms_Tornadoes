@@ -10,10 +10,11 @@ FBXRenderer::FBXRenderer()
 {
 }
 
-void FBXRenderer::Create(ID3D11Device & dev, XMFLOAT4X4 & camera)
+void FBXRenderer::Create(ID3D11Device & dev, XMFLOAT4X4 & camera, ID3D11DeviceContext &Con)
 {
 	m_dev = &dev;
 	m_camera = &camera;
+	m_devCon = &Con;
 }
 
 // Initializes view parameters when the window size changes.
@@ -80,7 +81,7 @@ void FBXRenderer::LoadFBXFromFile(const char *fbx, const char *bin, const wchar_
 		CreateDDSTextureFromFile(
 			m_dev,
 			texturePath,
-			(ID3D11Resource**)m_texture2D,
+			(ID3D11Resource**)&m_texture2D,
 			&m_texView);
 	}
 	CreateDeviceDependentResources();
@@ -95,6 +96,9 @@ void FBXRenderer::CreateDeviceDependentResources(void)
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "UV", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "BLENDINDICE", 0, DXGI_FORMAT_R32G32B32_UINT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+
 	};
 
 	m_dev->CreateInputLayout(vertDesc, ARRAYSIZE(vertDesc), _VertShader, sizeof(_VertShader), &m_inputLayout);

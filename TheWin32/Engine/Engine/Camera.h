@@ -12,7 +12,7 @@ struct Camera
 
 	Camera();
 	void Create(XMFLOAT4X4 cam);
-	void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.0f);
+	void UpdateCamera(float const moveSpd, float const rotSpd);
 	float* Camera::GetDelta() { return &delta_time; }
 	long long* Camera::GetKeyframe() { return &keyframe; }
 	bool* Camera::GetWireframe() { return &wireFram; }
