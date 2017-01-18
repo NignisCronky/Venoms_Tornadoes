@@ -1,279 +1,413 @@
-#pragma once
-#include "Render.h"
-
-//&swapchain, &Device, NULL, &Devicecon, backbuffer
-
-IDXGISwapChain* swapchain;
-ID3D11Device* Device;
-ID3D11DeviceContext* Devicecon;
-ID3D11RenderTargetView* backbuffer;
-ID3D11ShaderResourceView* shaderResourceView;
-ID3D11DepthStencilView * DepthStencilView;
-
-Pro_View_World PVW;
+#include <windows.h> 
+#define Width_ 500
+#define Height_ 400
+#include <d3d11.h>
+#pragma comment (lib, "d3d11.lib")
 
 
 
 
-#pragma region Globals
-#define PI 3.141592653f
+LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd);
+bool Init(HWND &hWnd);
+bool InitCamera();
+bool InitGraphics(HWND& hWnd);
+void CleanD3D();
+void RenderFrame();
 
-//Camera Shit
-//Matrix data member for the camera
-XMFLOAT4X4 m_camera;
-bool rightHeld = false;
-Timer m_timer;
+IDXGISwapChain *SwapChain;
+ID3D11Device *Device;
+ID3D11DeviceContext *DeviceContext;
+ID3D11RenderTargetView* BackBuffer;
 
-struct VERTEX {									// vertex structure
-	FLOAT X, Y, Z;
-	DirectX::XMFLOAT4 Color;
-};
-
-struct Vec4
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
-	float pos[4];
-	Vec4(float x, float y, float z, float w)
+	HWND WindowHandle;
+	WindowsSetup(WindowHandle, hInstance, nShowCmd);
+	Init(WindowHandle);
+
+	MSG msg = { 0 };
+	while (TRUE)
 	{
-		pos[0] = x;
-		pos[1] = y;
-		pos[2] = z;
-		pos[3] = w;
-	}
-	Vec4()
-	{
-		pos[0] = 0;
-		pos[1] = 0;
-		pos[2] = 0;
-		pos[3] = 0;
-	}
-};
-
-DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
-DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
-DirectX::XMFLOAT4X4 _WorldMatrix;				//world matrix
-
-
-enum ShadingMode
-{
-	SHADING_MODE_WIREFRAME,
-	SHADING_MODE_SHADED,
-};
-
-const char* filename = "../Original Assets/AnimatedBox/Box_Idle.fbx";
-const char* spherename = "../Original Assets/spherical.fbx";
-ID3D11RasterizerState** rasState;
-bool wired = false;
-#pragma endregion
-
-#pragma region Foward Declarations
-
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam); // WindowProc Foward Declaritaion
-
-#pragma endregion
-void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
-{
-
-	// fill in the struct with the needed information
-	WindowClass.cbSize = sizeof(WNDCLASSEX);
-	WindowClass.style = CS_HREDRAW | CS_VREDRAW;
-	WindowClass.lpfnWndProc = WindowProc;
-	WindowClass.hInstance = Instance;
-	WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-	// the windows backgound : remove this for fullscreen effects
-	//WindowClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
-	WindowClass.lpszClassName = L"WindowClass1";
-
-	// register the window class
-	RegisterClassEx(&WindowClass);
-}
-
-#pragma region HelperFunctions
-void SetUpMatrices(Pro_View_World& pvw)
-{
-	float aspectRatio = (float)WIDTH_P / (float)HEIGHT_P;
-	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
-	
-	if (aspectRatio < 1.0f)
-	{
-		fovAngleY *= 2.0f;
-	}
-	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 1000.0f);
-	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
-
-	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,8.0f);
-	DirectX::XMStoreFloat4x4(&pvw.View, XMMatrixInverse(nullptr,perspectiveMatrix));
-
-	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
-}
-
-void InitD3D(HWND hWnd)
-{
-	// create a struct to hold information about the swap chain
-	DXGI_SWAP_CHAIN_DESC scd;
-
-	// clear out the struct for use
-	ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC));
-
-	// fill the swap chain description struct
-	scd.BufferCount = 1;                                    // one back buffer
-	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;     // use 32-bit color
-	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;      // how swap chain is to be used
-	scd.OutputWindow = hWnd;                                // the window to be used
-															//fullscreen/resolution settings
-	scd.BufferDesc.Width = WIDTH_P;
-	scd.BufferDesc.Height = HEIGHT_P;
-
-
-	scd.SampleDesc.Count = 1;                               // how many multisamples
-	scd.Windowed = TRUE;                                    // windowed/full-screen mode
-	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // this enables fullscreen switching with alt+enter
-
-														// create a Deviceice, Deviceice context and swap chain using the information in the scd struct
-	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &Device, NULL, &Devicecon);
-
-	//////////////////////
-	// Back Buffer: renderTarget
-	//////////////////////
-
-	// get the address of the back buffer
-	ID3D11Texture2D* pBackBuffer;
-	swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
-
-	// use the back buffer address to create the render target
-	Device->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
-
-	ID3D11Texture2D *Resourse2D;
-	D3D11_TEXTURE2D_DESC Resourse2DDesc;
-	ZeroMemory(&Resourse2DDesc, sizeof(Resourse2DDesc));
-	Resourse2DDesc.Width = WIDTH_P;
-	Resourse2DDesc.Height = HEIGHT_P;
-	Resourse2DDesc.MipLevels = 1;
-	Resourse2DDesc.ArraySize = 1;
-	Resourse2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	Resourse2DDesc.SampleDesc.Count = 1;
-	Resourse2DDesc.SampleDesc.Quality = 0;
-	Resourse2DDesc.Usage = D3D11_USAGE_DEFAULT;
-	Resourse2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-
-
-	Device->CreateTexture2D(&Resourse2DDesc, NULL, &Resourse2D);
-
-
-	D3D11_DEPTH_STENCIL_VIEW_DESC DepthDesc;
-	ZeroMemory(&DepthDesc, sizeof(DepthDesc));
-	DepthDesc.Format = Resourse2DDesc.Format;
-	DepthDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-
-
-	Device->CreateDepthStencilView(Resourse2D, &DepthDesc, &DepthStencilView);
-
-	pBackBuffer->Release();
-
-	// set the render target as the back buffer
-	Devicecon->OMSetRenderTargets(1, &backbuffer, DepthStencilView);
-
-	////////////////// ViewPort
-
-	D3D11_VIEWPORT viewport;
-	ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
-
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = WIDTH_P;
-	viewport.Height = HEIGHT_P;
-	viewport.MaxDepth = 1;
-	Devicecon->RSSetViewports(1, &viewport);
-}
-
-#pragma region Windows Code
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
-{
-	{
-		WNDCLASSEX WindowClass;// this struct holds information for the window class
-		ZeroMemory(&WindowClass, sizeof(WNDCLASSEX));
-		//////////// 3 window functions that set up the window //////// 
-		Register(hInstance, WindowClass);
-		RECT wr = { 0, 0, WIDTH_W, HEIGHT_W };
-		AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
-		ShowWindow(hWnd, nCmdShow);
-		///////////////////////////////////////////////////////////////
-		FBXtoBinary("../Original Assets//AnimatedBox/Box_Idle.fbx", "../Exports/Box_Idle.bin", true);
-		//FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin", false);
-		Skeleton skelly;
-		std::vector<unsigned int> indicies;
-		std::vector<PNTIWVertex> verts;
-		ReadBinary("../Exports/Box_Idle.bin", &skelly, &indicies, &verts);
-		//ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
-		ID3D11Texture2D *k;
-		InitD3D(hWnd);
-		SetUpMatrices(PVW);
-		swapchain->Present(0, 0);
-		CreateDDSTextureFromFile(Device, L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds", (ID3D11Resource**)&k, &shaderResourceView);
-		Render Bear(shaderResourceView, PVW, indicies, skelly.mJoints,verts, Devicecon, Device);
-		
-
-
-
-		///////////////
-		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
-		MSG msg = { 0 };
-		
-		m_timer.Reset();
-		while (TRUE)
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
-			float delta = m_timer.GetElapsedTime() * 4.0f;
-			m_timer.Reset();
-			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-				if (msg.message == WM_QUIT)
-					break;
-			}
-			else
-			{
-				//game code goes here
-			}
-			FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
-			Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
-			Devicecon->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH, 1, 0);
-			Bear.Draw(backbuffer, Devicecon, PVW);
-			swapchain->Present(0, 0);
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+			if (msg.message == WM_QUIT)
+				break;
 		}
-		Bear.Release();
-		return (int)msg.wParam;
+		RenderFrame();
 	}
 }
-
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	// sort through and find what code to run for the message given
 	switch (message)
 	{
-		// this message is read when the window is closed
 	case WM_DESTROY:
 	{
-		// close the application entirely
 		PostQuitMessage(0);
 		return 0;
-	}
+	} break;
 	}
 
-	// Handle any messages the switch statement didn't
 	return DefWindowProc(hWnd, message, wParam, lParam);
 }
+bool WindowsSetup(HWND& WindowHandle, HINSTANCE hInstance, int nShowCmd)
+{
 
-#pragma endregion
+	WNDCLASSEX WindowsClassDesc;
+	ZeroMemory(&WindowsClassDesc, sizeof(WNDCLASSEX));
+	WindowsClassDesc.cbSize = sizeof(WNDCLASSEX);
+	WindowsClassDesc.style = CS_HREDRAW | CS_VREDRAW;
+	WindowsClassDesc.lpfnWndProc = WindowProc;
+	WindowsClassDesc.hInstance = hInstance;
+	WindowsClassDesc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	WindowsClassDesc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+	WindowsClassDesc.lpszClassName = L"WindowClass1";
+	RegisterClassEx(&WindowsClassDesc);
+
+	RECT wr = { 0, 0, Width_, Height_ };
+	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+	WindowHandle = CreateWindowEx(NULL, L"WindowClass1", L"Jordan & Logano Schorch", WS_OVERLAPPEDWINDOW, 50, 50, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
+	ShowWindow(WindowHandle, nShowCmd);
+	return true;
+}
+bool Init(HWND& hWnd)
+{
+
+	InitGraphics(hWnd);
 
 
 
+	return true;
+}
+
+bool InitCamera()
+{
+	return true;
+}
+
+bool InitGraphics(HWND& hWnd)
+{
+	DXGI_SWAP_CHAIN_DESC SwapChainDesc;
+	ZeroMemory(&SwapChainDesc, sizeof(DXGI_SWAP_CHAIN_DESC));
+	SwapChainDesc.BufferCount = 1;
+	SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	SwapChainDesc.OutputWindow = hWnd;
+	SwapChainDesc.SampleDesc.Count = 4;
+	SwapChainDesc.Windowed = TRUE;
+	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL, D3D11_SDK_VERSION, &SwapChainDesc, &SwapChain, &Device, NULL, &DeviceContext);
+
+	ID3D11Texture2D *BackBufferTexture;
+	SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&BackBufferTexture);
+	Device->CreateRenderTargetView(BackBufferTexture, NULL, &BackBuffer);
+	DeviceContext->OMSetRenderTargets(1, &BackBuffer, NULL);
 
 
+	D3D11_VIEWPORT ViewPort;
+	ZeroMemory(&ViewPort, sizeof(ViewPort));
+	ViewPort.TopLeftX = 0;
+	ViewPort.TopLeftY = 0;
+	ViewPort.Width = 800;
+	ViewPort.Height = 600;
+	DeviceContext->RSSetViewports(1, &ViewPort);
+	return true;
+}
+
+void CleanD3D()
+{
+	SwapChain->Release();
+	BackBuffer->Release();
+	Device->Release();
+	DeviceContext->Release();
+}
+
+void RenderFrame()
+{
+	FLOAT RedBackGround[4] = { 1.0f,0.0f,0.0f,1.0f };
+	DeviceContext->ClearRenderTargetView(BackBuffer, RedBackGround);
+
+	SwapChain->Present(0, 0);
+}
 
 
+// ;-^--------------------) kill me
 #pragma region IsKill
+
+
+//#pragma once
+//#include "Render.h"
+//
+////&swapchain, &Device, NULL, &Devicecon, backbuffer
+//
+//IDXGISwapChain* swapchain;
+//ID3D11Device* Device;
+//ID3D11DeviceContext* Devicecon;
+//ID3D11RenderTargetView* backbuffer;
+//ID3D11ShaderResourceView* shaderResourceView;
+//ID3D11DepthStencilView * DepthStencilView;
+//
+//Pro_View_World PVW;
+//
+//
+//
+//
+//#pragma region Globals
+//#define PI 3.141592653f
+//
+////Camera Shit
+////Matrix data member for the camera
+//XMFLOAT4X4 m_camera;
+//bool rightHeld = false;
+//Timer m_timer;
+//
+//struct VERTEX {									// vertex structure
+//	FLOAT X, Y, Z;
+//	DirectX::XMFLOAT4 Color;
+//};
+//
+//struct Vec4
+//{
+//	float pos[4];
+//	Vec4(float x, float y, float z, float w)
+//	{
+//		pos[0] = x;
+//		pos[1] = y;
+//		pos[2] = z;
+//		pos[3] = w;
+//	}
+//	Vec4()
+//	{
+//		pos[0] = 0;
+//		pos[1] = 0;
+//		pos[2] = 0;
+//		pos[3] = 0;
+//	}
+//};
+//
+//DirectX::XMFLOAT4X4 _ProjectionMatrix;			//projection matrix
+//DirectX::XMFLOAT4X4 _ViewMatrix;				//view matrix
+//DirectX::XMFLOAT4X4 _WorldMatrix;				//world matrix
+//
+//
+//enum ShadingMode
+//{
+//	SHADING_MODE_WIREFRAME,
+//	SHADING_MODE_SHADED,
+//};
+//
+//const char* filename = "../Original Assets/AnimatedBox/Box_Idle.fbx";
+//const char* spherename = "../Original Assets/spherical.fbx";
+//ID3D11RasterizerState** rasState;
+//bool wired = false;
+//#pragma endregion
+//
+//#pragma region Foward Declarations
+//
+//LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam); // WindowProc Foward Declaritaion
+//
+//#pragma endregion
+//void Register(HINSTANCE Instance, WNDCLASSEX WindowClass)
+//{
+//
+//	// fill in the struct with the needed information
+//	WindowClass.cbSize = sizeof(WNDCLASSEX);
+//	WindowClass.style = CS_HREDRAW | CS_VREDRAW;
+//	WindowClass.lpfnWndProc = WindowProc;
+//	WindowClass.hInstance = Instance;
+//	WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+//	// the windows backgound : remove this for fullscreen effects
+//	//WindowClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+//	WindowClass.lpszClassName = L"WindowClass1";
+//
+//	// register the window class
+//	RegisterClassEx(&WindowClass);
+//}
+//
+//#pragma region HelperFunctions
+//void SetUpMatrices(Pro_View_World& pvw)
+//{
+//	float aspectRatio = (float)WIDTH_P / (float)HEIGHT_P;
+//	float fovAngleY = 60.0f * DirectX::XM_PI / 180.0f;
+//	
+//	if (aspectRatio < 1.0f)
+//	{
+//		fovAngleY *= 2.0f;
+//	}
+//	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 1000.0f);
+//	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
+//
+//	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,8.0f);
+//	DirectX::XMStoreFloat4x4(&pvw.View, XMMatrixInverse(nullptr,perspectiveMatrix));
+//
+//	DirectX::XMStoreFloat4x4(&pvw.World, DirectX::XMMatrixIdentity());
+//}
+//
+//void InitD3D(HWND hWnd)
+//{
+//	// create a struct to hold information about the swap chain
+//	DXGI_SWAP_CHAIN_DESC scd;
+//
+//	// clear out the struct for use
+//	ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC));
+//
+//	// fill the swap chain description struct
+//	scd.BufferCount = 1;                                    // one back buffer
+//	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;     // use 32-bit color
+//	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;      // how swap chain is to be used
+//	scd.OutputWindow = hWnd;                                // the window to be used
+//															//fullscreen/resolution settings
+//	scd.BufferDesc.Width = WIDTH_P;
+//	scd.BufferDesc.Height = HEIGHT_P;
+//
+//
+//	scd.SampleDesc.Count = 1;                               // how many multisamples
+//	scd.Windowed = TRUE;                                    // windowed/full-screen mode
+//	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // this enables fullscreen switching with alt+enter
+//
+//														// create a Deviceice, Deviceice context and swap chain using the information in the scd struct
+//	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, D3D11_CREATE_DEVICE_DEBUG, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &Device, NULL, &Devicecon);
+//
+//	//////////////////////
+//	// Back Buffer: renderTarget
+//	//////////////////////
+//
+//	// get the address of the back buffer
+//	ID3D11Texture2D* pBackBuffer;
+//	swapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+//
+//	// use the back buffer address to create the render target
+//	Device->CreateRenderTargetView(pBackBuffer, NULL, &backbuffer);
+//
+//	ID3D11Texture2D *Resourse2D;
+//	D3D11_TEXTURE2D_DESC Resourse2DDesc;
+//	ZeroMemory(&Resourse2DDesc, sizeof(Resourse2DDesc));
+//	Resourse2DDesc.Width = WIDTH_P;
+//	Resourse2DDesc.Height = HEIGHT_P;
+//	Resourse2DDesc.MipLevels = 1;
+//	Resourse2DDesc.ArraySize = 1;
+//	Resourse2DDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+//	Resourse2DDesc.SampleDesc.Count = 1;
+//	Resourse2DDesc.SampleDesc.Quality = 0;
+//	Resourse2DDesc.Usage = D3D11_USAGE_DEFAULT;
+//	Resourse2DDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+//
+//
+//	Device->CreateTexture2D(&Resourse2DDesc, NULL, &Resourse2D);
+//
+//
+//	D3D11_DEPTH_STENCIL_VIEW_DESC DepthDesc;
+//	ZeroMemory(&DepthDesc, sizeof(DepthDesc));
+//	DepthDesc.Format = Resourse2DDesc.Format;
+//	DepthDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+//
+//
+//	Device->CreateDepthStencilView(Resourse2D, &DepthDesc, &DepthStencilView);
+//
+//	pBackBuffer->Release();
+//
+//	// set the render target as the back buffer
+//	Devicecon->OMSetRenderTargets(1, &backbuffer, DepthStencilView);
+//
+//	////////////////// ViewPort
+//
+//	D3D11_VIEWPORT viewport;
+//	ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+//
+//	viewport.TopLeftX = 0;
+//	viewport.TopLeftY = 0;
+//	viewport.Width = WIDTH_P;
+//	viewport.Height = HEIGHT_P;
+//	viewport.MaxDepth = 1;
+//	Devicecon->RSSetViewports(1, &viewport);
+//}
+//
+//#pragma region Windows Code
+//
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+//{
+//	{
+//		WNDCLASSEX WindowClass;// this struct holds information for the window class
+//		ZeroMemory(&WindowClass, sizeof(WNDCLASSEX));
+//		//////////// 3 window functions that set up the window //////// 
+//		Register(hInstance, WindowClass);
+//		RECT wr = { 0, 0, WIDTH_W, HEIGHT_W };
+//		AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
+//		HWND hWnd = CreateWindowEx(NULL, L"WindowClass1", L"POISON", WS_OVERLAPPEDWINDOW, 200, 150, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
+//		ShowWindow(hWnd, nCmdShow);
+//		///////////////////////////////////////////////////////////////
+//		FBXtoBinary("../Original Assets//AnimatedBox/Box_Idle.fbx", "../Exports/Box_Idle.bin", true);
+//		//FBXtoBinary("../Original Assets/Teddy/Teddy_Idle.fbx", "../Exports/Teddy_Idle.bin", false);
+//		Skeleton skelly;
+//		std::vector<unsigned int> indicies;
+//		std::vector<PNTIWVertex> verts;
+//		ReadBinary("../Exports/Box_Idle.bin", &skelly, &indicies, &verts);
+//		//ReadBinary("../Exports/Teddy_Idle.bin", &skelly, &indicies, &verts);
+//		ID3D11Texture2D *k;
+//		InitD3D(hWnd);
+//		SetUpMatrices(PVW);
+//		swapchain->Present(0, 0);
+//		CreateDDSTextureFromFile(Device, L"../Original Assets/AnimatedBox/Box_Idle.fbm/TestCube.dds", (ID3D11Resource**)&k, &shaderResourceView);
+//		Render Bear(shaderResourceView, PVW, indicies, skelly.mJoints,verts, Devicecon, Device);
+//		
+//
+//
+//
+//		///////////////
+//		//msg has to be zero or else it will error with peekmessage: if you want to not intialize it use getMessage(), but get message is blocking
+//		MSG msg = { 0 };
+//		
+//		m_timer.Reset();
+//		while (TRUE)
+//		{
+//			float delta = m_timer.GetElapsedTime() * 4.0f;
+//			m_timer.Reset();
+//			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+//			{
+//				TranslateMessage(&msg);
+//				DispatchMessage(&msg);
+//				if (msg.message == WM_QUIT)
+//					break;
+//			}
+//			else
+//			{
+//				//game code goes here
+//			}
+//			FLOAT ColorScreen[4] = { 0.0f,0.2f,0.4f,1.0f };
+//			Devicecon->ClearRenderTargetView(backbuffer, ColorScreen);
+//			Devicecon->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH, 1, 0);
+//			Bear.Draw(backbuffer, Devicecon, PVW);
+//			swapchain->Present(0, 0);
+//		}
+//		Bear.Release();
+//		return (int)msg.wParam;
+//	}
+//}
+//
+//LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+//{
+//	// sort through and find what code to run for the message given
+//	switch (message)
+//	{
+//		// this message is read when the window is closed
+//	case WM_DESTROY:
+//	{
+//		// close the application entirely
+//		PostQuitMessage(0);
+//		return 0;
+//	}
+//	}
+//
+//	// Handle any messages the switch statement didn't
+//	return DefWindowProc(hWnd, message, wParam, lParam);
+//}
+
+
+
+
+
+
 //// Find all the cameras under this node recursively.
 //void FillCameraArrayRecursive(FbxNode* pNode, FbxArray<FbxNode*>& pCameraArray)
 //{
@@ -698,7 +832,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 //
 //	return true;
 //}
-#pragma endregion
 //
 //void UpdateCamera(float const moveSpd, float const rotSpd, float delta_time = 1.0f)
 //{
@@ -1077,3 +1210,4 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 //
 //}
 //
+#pragma endregion
