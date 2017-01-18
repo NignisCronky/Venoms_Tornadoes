@@ -97,7 +97,7 @@ void SetUpMatrices(Pro_View_World& pvw)
 	{
 		fovAngleY *= 2.0f;
 	}
-	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 100.0f);
+	XMMATRIX perspectiveMatrix = DirectX::XMMatrixPerspectiveFovLH(XM_PIDIV4, aspectRatio, 0.01f, 1000.0f);
 	DirectX::XMStoreFloat4x4(&pvw.Pro, perspectiveMatrix);
 
 	perspectiveMatrix = DirectX::XMMatrixTranslation(0, 2.0f,8.0f);

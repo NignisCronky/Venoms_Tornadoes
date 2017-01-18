@@ -4,11 +4,6 @@ Render::Render(ID3D11ShaderResourceView *shaderResourceView, Pro_View_World& Mat
 {
 	//Use this shit before you draw
 	texViews = { shaderResourceView };
-
-
-
-
-
 	Frame = 0;
 	// Grabs the view, and projection Passed in
 	// sets the world matrix to idenity

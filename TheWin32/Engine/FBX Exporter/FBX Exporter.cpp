@@ -144,7 +144,7 @@ void ProcessControlPoints(FbxNode* inNode)
 		XMFLOAT3 currPosition;
 		currPosition.x = static_cast<float>(currMesh->GetControlPointAt(i).mData[0]);
 		currPosition.y = static_cast<float>(currMesh->GetControlPointAt(i).mData[1]);
-		currPosition.z = static_cast<float>(currMesh->GetControlPointAt(i).mData[2]);
+		currPosition.z = -1.0f * static_cast<float>(currMesh->GetControlPointAt(i).mData[2]);
 		currCtrlPoint.mPosition = currPosition;
 		mControlPoints[i] = currCtrlPoint;
 	}
@@ -339,7 +339,7 @@ void ReadUV(FbxMesh* inMesh, int inCtrlPointIndex, int inTextureUVIndex, int inU
 		case FbxGeometryElement::eDirect:
 		{
 			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(inCtrlPointIndex).mData[0]);
-			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(inCtrlPointIndex).mData[1]);
+			outUV.y = 1.0f - static_cast<float>(vertexUV->GetDirectArray().GetAt(inCtrlPointIndex).mData[1]);
 		}
 		break;
 
@@ -347,7 +347,7 @@ void ReadUV(FbxMesh* inMesh, int inCtrlPointIndex, int inTextureUVIndex, int inU
 		{
 			int index = vertexUV->GetIndexArray().GetAt(inCtrlPointIndex);
 			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(index).mData[0]);
-			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(index).mData[1]);
+			outUV.y = 1.0f - static_cast<float>(vertexUV->GetDirectArray().GetAt(index).mData[1]);
 		}
 		break;
 
@@ -363,7 +363,7 @@ void ReadUV(FbxMesh* inMesh, int inCtrlPointIndex, int inTextureUVIndex, int inU
 		case FbxGeometryElement::eIndexToDirect:
 		{
 			outUV.x = static_cast<float>(vertexUV->GetDirectArray().GetAt(inTextureUVIndex).mData[0]);
-			outUV.y = static_cast<float>(vertexUV->GetDirectArray().GetAt(inTextureUVIndex).mData[1]);
+			outUV.y = 1.0f - static_cast<float>(vertexUV->GetDirectArray().GetAt(inTextureUVIndex).mData[1]);
 		}
 		break;
 
@@ -532,9 +532,9 @@ void WriteToBinary(const char* savefile, Skeleton skelly, std::vector<unsigned i
 	f.close();
 }
 
-void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite)
+void FBXtoBinary(const char* fbxfile, const char* binfile, bool overwrite)
 {
-	std::ifstream f(savefile);
+	std::ifstream f(binfile);
 	if (!overwrite && f.good())
 	{
 		f.close();
@@ -551,7 +551,7 @@ void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite)
 	if (!fbxImporter)
 		return;
 
-	if (!fbxImporter->Initialize(loadfile, -1, pManager->GetIOSettings()))
+	if (!fbxImporter->Initialize(fbxfile, -1, pManager->GetIOSettings()))
 		return;
 
 	if (!fbxImporter->Import(pScene))
@@ -574,7 +574,7 @@ void FBXtoBinary(const char* loadfile, const char* savefile, bool overwrite)
 	//ReduceKeyframes(&skelly);
 
 	//Output skelleton, indicies, and verts
-	WriteToBinary(savefile, skelly, indicies, verts);
+	WriteToBinary(binfile, skelly, indicies, verts);
 
 	DestroySdkObjects(pManager, pScene);
 	return;
