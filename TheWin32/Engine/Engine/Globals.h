@@ -31,3 +31,9 @@ struct Pro_View_World
 	DirectX::XMFLOAT4X4 Pro;
 	DirectX::XMFLOAT4X4 View;
 };
+
+
+struct VERTEX {									// vertex structure
+	FLOAT X, Y, Z;
+	DirectX::XMFLOAT4 Color;
+};

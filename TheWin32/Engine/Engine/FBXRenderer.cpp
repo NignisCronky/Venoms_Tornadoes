@@ -1,4 +1,5 @@
 #include "FBXRenderer.h"
+#include "../FBX Exporter/FBX Exporter.h"
 FBXRenderer::FBXRenderer(ID3D11Device &dev, XMFLOAT4X4 &camera,ID3D11DeviceContext &DevCon)
 {
 	m_dev = &dev;
@@ -55,6 +56,110 @@ void FBXRenderer::CreateWindowSizeDependentResources(void)
 
 	XMStoreFloat4x4(&m_constantBufferData.View, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(m_camera))));
 }
+const char* spherename = "../Original Assets/spherical.fbx";
+
+//std::vector<MyMesh> sphere;
+//LoadScene(spherename, sphere);
+void FBXRenderer::DrawBones(std::vector<MyMesh> Sphere_, float offset_[3])
+{
+	std::vector<VERTEX> vertextlist;
+
+	for (unsigned i = 0; i < Sphere_.size(); i++)
+	{
+		VERTEX Temp;
+		Temp.Color = { 0.5f,0.5f,0.0f,1.0f };
+		Temp.X = Sphere_[i].position[0] + offset_[0];
+		Temp.Y = Sphere_[i].position[1] + offset_[1];
+		Temp.Z = Sphere_[i].position[2] + offset_[2];
+		vertextlist.push_back(Temp);
+	}
+	//set input layout, set pixel shadder
+
+
+
+
+
+
+
+
+
+
+
+
+	ID3D11Buffer *AniBuffer_;
+	D3D11_BUFFER_DESC AniBuffDesc;
+	ZeroMemory(&AniBuffDesc, sizeof(AniBuffDesc));
+	AniBuffDesc.Usage = D3D11_USAGE_DYNAMIC;                // write access access by CPU and GPU
+	AniBuffDesc.ByteWidth = sizeof(VERTEX) * (unsigned)vertextlist.size(); // size is the VERTEX struct
+	AniBuffDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;       // use as a vertex buffer
+	AniBuffDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;    // allow CPU to write in buffer
+	D3D11_SUBRESOURCE_DATA data;
+	data.pSysMem = &vertextlist[0];
+HRESULT debug=	m_dev->CreateBuffer(&AniBuffDesc, &data, &AniBuffer_);       // create the buffer
+
+	UINT stride = sizeof(VERTEX);
+	UINT offset = 0;
+	this->m_devCon->IASetVertexBuffers(0, 1, &AniBuffer_, &stride, &offset);
+
+
+	ID3D11RasterizerState *AniRaster;
+	D3D11_RASTERIZER_DESC AniRasDesc;
+	ZeroMemory(&AniRasDesc, sizeof(AniRasDesc));
+	AniRasDesc.CullMode = D3D11_CULL_NONE;
+	AniRasDesc.FillMode = D3D11_FILL_WIREFRAME;
+	m_dev->CreateRasterizerState(&AniRasDesc, &AniRaster);
+	m_devCon->RSSetState(AniRaster);
+	m_devCon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	m_devCon->Draw((unsigned)vertextlist.size(), 0);
+
+	AniBuffer_->Release();
+	AniRaster->Release();
+	HRESULT GetDeviceRemovedReason();
+
+	D3D11_RASTERIZER_DESC RasDesc;
+	ZeroMemory(&RasDesc, sizeof(RasDesc));
+	RasDesc.CullMode = D3D11_CULL_NONE;
+	RasDesc.FillMode = D3D11_FILL_SOLID;
+	m_dev->CreateRasterizerState(&RasDesc, &RasterState);
+
+	m_devCon->RSSetState(RasterState);
+	stride = sizeof(VERTEX);
+	m_devCon->IASetVertexBuffers(0, 1, &this->m_vertexBuffer, &stride, &offset);
+	m_devCon->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+void FBXRenderer::DrawSpheresForbones(std::vector<Bone> vec, std::vector<MyMesh> Sphere_)
+{
+
+	D3D11_INPUT_ELEMENT_DESC INPUT_DESC[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+	ID3D11InputLayout* _Layout;
+	//Device->CreateInputLayout(INPUT_DESC, 2, _VertexShader, sizeof(_VertexShader), &_Layout);
+	m_dev->CreateInputLayout(INPUT_DESC, 2, Vshader, sizeof(Vshader), &_Layout);
+	m_devCon->IASetInputLayout(_Layout);
+
+	//MVPDCB	m_constantBufferData;
+	//XMFLOAT4X4* m_camera;
+	
+	//set constant buffer
+	//set shadders
+	m_devCon->VSSetShader(this->ShereVeetShader, nullptr, 0);
+	m_devCon->PSSetShader(this->SherepixeShader, nullptr, 0);
+	m_devCon->VSSetConstantBuffers(0, 1, &Sphere_constantBuffer);
+
+	for (unsigned i = 0; i < vec.size(); i++)
+	{
+		DrawBones(Sphere_, vec[i].pos);
+	}
+
+	_Layout->Release();
+
+
+}
+
+
 
 void FBXRenderer::Update(long long frame)
 {
@@ -83,6 +188,11 @@ void FBXRenderer::Update(long long frame)
 	m_constantBufferData.LightColor = XMFLOAT4(0.0f, 1.5f * frame, 1.5f * frame, 1.0f);
 	//m_constantBufferData.LightDirection = XMFLOAT4(1.0f * (frame % skelly.mJoints[0].mAnimation.size()), -1.0f, 1.0f * (frame % skelly.mJoints[0].mAnimation.size()), 1.0f);
 	//m_constantBufferData.LightColor = XMFLOAT4(0.0f, 1.5f * frame, 1.5f * frame, 1.0f);
+	//
+	
+	
+
+
 }
 
 void FBXRenderer::LoadFBXFromFile(const char *fbx, const char *bin, const wchar_t *texturePath)
@@ -98,12 +208,16 @@ void FBXRenderer::LoadFBXFromFile(const char *fbx, const char *bin, const wchar_
 			&m_texView);
 	}
 	CreateDeviceDependentResources();
+	
+	LoadScene(spherename, this->Sphere);
 }
 
 void FBXRenderer::CreateDeviceDependentResources(void)
 {
 	m_dev->CreateVertexShader(&_VertShader, sizeof(_VertShader), nullptr, &m_vertexShader);
+	m_dev->CreateVertexShader(&Vshader, sizeof(Vshader), nullptr, &ShereVeetShader);
 
+	//ShereVeetShader
 	static const D3D11_INPUT_ELEMENT_DESC vertDesc[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -115,15 +229,24 @@ void FBXRenderer::CreateDeviceDependentResources(void)
 	m_dev->CreateInputLayout(vertDesc, ARRAYSIZE(vertDesc), _VertShader, sizeof(_VertShader), &m_inputLayout);
 
 	m_dev->CreatePixelShader(&_PixShader, sizeof(_PixShader), nullptr, &m_pixelShader);
+	m_dev->CreatePixelShader(&Pshader, sizeof(Pshader), nullptr, &SherepixeShader);
+
+
 
 	CD3D11_BUFFER_DESC constantBufferDesc(sizeof(MVPDCB), D3D11_BIND_CONSTANT_BUFFER);
 	m_dev->CreateBuffer(&constantBufferDesc, nullptr, &m_constantBuffer);
+
+	CD3D11_BUFFER_DESC constantBuffSphereerDesc(sizeof(Pro_View_World), D3D11_BIND_CONSTANT_BUFFER);
+	m_dev->CreateBuffer(&constantBuffSphereerDesc, nullptr, &Sphere_constantBuffer);
+
+
+
 
 	D3D11_SUBRESOURCE_DATA m_vertexBufferData = { 0 };
 	m_vertexBufferData.pSysMem = verts.data();
 	m_vertexBufferData.SysMemPitch = 0;
 	m_vertexBufferData.SysMemSlicePitch = 0;
-	CD3D11_BUFFER_DESC m_vertexBufferDesc(verts.size() * sizeof(PNTIWVertex), D3D11_BIND_VERTEX_BUFFER);
+	CD3D11_BUFFER_DESC m_vertexBufferDesc((unsigned)verts.size() * sizeof(PNTIWVertex), D3D11_BIND_VERTEX_BUFFER);
 	m_dev->CreateBuffer(&m_vertexBufferDesc, &m_vertexBufferData, &m_vertexBuffer);
 
 	/*D3D11_SUBRESOURCE_DATA m_indexBufferData = { 0 };
@@ -139,6 +262,12 @@ void FBXRenderer::CreateDeviceDependentResources(void)
 void FBXRenderer::Render()
 {
 	XMStoreFloat4x4(&m_constantBufferData.View, XMMatrixTranspose(XMMatrixInverse(nullptr, XMLoadFloat4x4(m_camera))));
+
+	Sphere_constantBufferData.Pro = m_constantBufferData.Pro;
+	Sphere_constantBufferData.World = m_constantBufferData.World;
+	Sphere_constantBufferData.View = m_constantBufferData.View;
+	//Sphere_constantBufferData
+
 
 	// Prepare the constant buffer to send it to the graphics device.
 	m_devCon->UpdateSubresource(m_constantBuffer, 0, NULL, &m_constantBufferData, 0, 0);
@@ -162,7 +291,12 @@ void FBXRenderer::Render()
 	// Attach our pixel shader.
 	m_devCon->PSSetShader(m_pixelShader, nullptr, 0);
 	//context->DrawIndexed(m_indexCount, 0, 0);
-	m_devCon->Draw(verts.size(), 0);
+	m_devCon->Draw((unsigned)verts.size(), 0);
+
+
+
+
+
 }
 
 void FBXRenderer::ReleaseDeviceDependentResources(void)
@@ -178,4 +312,8 @@ void FBXRenderer::ReleaseDeviceDependentResources(void)
 	m_texture2D->Release();
 	m_texView->Release();
 	m_blendState->Release();
+	Sphere_constantBuffer->Release();
+	this->ShereVeetShader->Release();
+	this->SherepixeShader->Release();
+
 }

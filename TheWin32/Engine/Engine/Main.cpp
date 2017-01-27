@@ -21,6 +21,8 @@ Camera camera;
 FBXRenderer box;
 FBXRenderer bear;
 
+
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
 	HWND WindowHandle;
@@ -167,12 +169,6 @@ bool Init(HWND& hWnd)
 		L"../Original Assets/Teddy/Teddy_Idle.fbm/Teddy_D.dds"
 	);
 
-	/*wizard.Create(*Device, _Camera.m_camera, *DeviceContext);
-	wizard.LoadFBXFromFile(
-		"../Original Assets/Mage/Idle.fbx",
-		"../Exports/Idle.bin",
-		L"../Original Assets/Mage/Battle Mage with Rig and textures.fbm/PPG_3D_Player_D.dds"
-	);*/
 	return true;
 }
 

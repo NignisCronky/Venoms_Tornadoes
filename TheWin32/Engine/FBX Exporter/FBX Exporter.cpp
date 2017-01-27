@@ -650,3 +650,222 @@ bool ReadBinary(const char* loadfile, Skeleton* skelly, std::vector<unsigned int
 	f.close();
 	return true;
 }
+
+
+
+void GetMyShit(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+{
+	if (node->GetNodeAttribute() == NULL)
+		return;
+
+	FbxNodeAttribute::EType AttributeType = node->GetNodeAttribute()->GetAttributeType();
+
+	if (AttributeType == FbxNodeAttribute::eMesh)
+	{
+		FbxMesh* pMesh = (FbxMesh*)node->GetNodeAttribute();
+
+		FbxVector4* pVertices = pMesh->GetControlPoints();
+
+		for (int j = 0; j < pMesh->GetPolygonCount(); j++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				int iControlPointIndex = pMesh->GetPolygonVertex(j, k);
+
+				float vertex[4];
+				vertex[0] = (float)pVertices[iControlPointIndex].mData[0];
+				vertex[1] = (float)pVertices[iControlPointIndex].mData[1];
+				vertex[2] = (float)pVertices[iControlPointIndex].mData[2];
+				vertex[3] = 1.0f;
+
+				//get the normal element
+				FbxGeometryElementNormal* lNormalElement = pMesh->GetElementNormal();
+				float norm[4];
+				if (lNormalElement)
+				{
+					//mapping mode is by control points. The mesh should be smooth and soft.
+					//we can get normals by retrieving each control point
+					if (lNormalElement->GetMappingMode() == FbxGeometryElement::eByControlPoint ||
+						lNormalElement->GetMappingMode() == FbxGeometryElement::eByPolygonVertex)
+					{
+						int lNormalIndex = iControlPointIndex;
+						//reference mode is direct, the normal index is same as vertex index.
+						//get normals by the index of control vertex
+						/*if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eDirect)
+						lNormalIndex = i;*/
+
+						//reference mode is index-to-direct, get normals by the index-to-direct
+						if (lNormalElement->GetReferenceMode() == FbxGeometryElement::eIndexToDirect)
+							lNormalIndex = lNormalElement->GetIndexArray().GetAt(iControlPointIndex);
+
+						//Got normals of each vertex.
+						FbxVector4 lNormal = lNormalElement->GetDirectArray().GetAt(lNormalIndex);
+						norm[0] = (float)lNormal[0];
+						norm[1] = (float)lNormal[1];
+						norm[2] = (float)lNormal[2];
+						norm[3] = 1.0f;
+					}
+				}
+
+				//Get UVs
+				FbxVector2 uvCoords;
+				FbxStringList uvstring;
+				pMesh->GetUVSetNames(uvstring);
+				bool tool;
+				pMesh->GetPolygonVertexUV(j, k, uvstring.GetStringAt(0), uvCoords, tool);
+
+				float uvs[4] = { static_cast<float>(uvCoords[0]), 1.0f - static_cast<float>(uvCoords[1]), 0.0f, 0.0f };
+
+				MyMesh temp = { vertex, norm, uvs };
+				mesh.push_back(temp);
+			}
+		}
+	}//&boner != &null_fill &&
+	else if (&boner != &null_fill && AttributeType == FbxNodeAttribute::eSkeleton)
+	{
+		FbxAMatrix temp = node->EvaluateGlobalTransform(0);
+		FbxVector4 tempt = temp.GetT();
+		FbxVector4 tempr = temp.GetR();
+		FbxVector4 temps = temp.GetS();
+		Bone bone = Bone((float)tempt.mData[0], (float)tempt.mData[1], (float)tempt.mData[2], (float)tempt.mData[3], (float)tempr.mData[0], (float)tempr.mData[1], (float)tempr.mData[2], (float)tempr.mData[3], (float)temps.mData[0], (float)temps.mData[1], (float)temps.mData[2], (float)temps.mData[3]);
+		boner.push_back(bone);
+	}
+	return;
+}
+
+void GetMyShitRecursive(FbxNode* node, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+{
+	GetMyShit(node, mesh, boner);
+	for (int i = 0; i < node->GetChildCount(); i++)
+	{
+		GetMyShitRecursive(node->GetChild(i), mesh, boner);
+	}
+}
+
+void DestroySdkObjects(FbxManager* pManager, bool pExitStatus)
+{
+	//Delete the FBX Manager. All the objects that have been allocated using the FBX Manager and that haven't been explicitly destroyed are also automatically destroyed.
+	if (pManager) pManager->Destroy();
+	if (pExitStatus) FBXSDK_printf("Program Success!\n");
+}
+
+void LoadScene(const char* pFilename, std::vector<MyMesh> &mesh, std::vector<Bone> &boner)
+{
+	FbxManager* pManager;
+	FbxScene* pScene;
+
+	InitializeSdkObjects(pManager, pScene);
+
+	int lFileMajor, lFileMinor, lFileRevision;
+	int lSDKMajor, lSDKMinor, lSDKRevision;
+	//int lFileFormat = -1;
+	int i, lAnimStackCount;
+	bool lStatus;
+
+	// Get the file version number generate by the FBX SDK.
+	FbxManager::GetFileFormatVersion(lSDKMajor, lSDKMinor, lSDKRevision);
+
+	// Create an importer.
+	FbxImporter* lImporter = FbxImporter::Create(pManager, "");
+
+	// Initialize the importer by providing a filename.
+	const bool lImportStatus = lImporter->Initialize(pFilename, -1, pManager->GetIOSettings());
+	lImporter->GetFileVersion(lFileMajor, lFileMinor, lFileRevision);
+
+	if (!lImportStatus)
+	{
+		FbxString error = lImporter->GetStatus().GetErrorString();
+		FBXSDK_printf("Call to FbxImporter::Initialize() failed.\n");
+		FBXSDK_printf("Error returned: %s\n\n", error.Buffer());
+
+		if (lImporter->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion)
+		{
+			FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
+			FBXSDK_printf("FBX file format version for file '%s' is %d.%d.%d\n\n", pFilename, lFileMajor, lFileMinor, lFileRevision);
+		}
+		return;
+	}
+
+	FBXSDK_printf("FBX file format version for this FBX SDK is %d.%d.%d\n", lSDKMajor, lSDKMinor, lSDKRevision);
+
+	if (lImporter->IsFBX())
+	{
+		FBXSDK_printf("FBX file format version for file '%s' is %d.%d.%d\n\n", pFilename, lFileMajor, lFileMinor, lFileRevision);
+
+		// From this point, it is possible to access animation stack information without
+		// the expense of loading the entire file.
+
+		FBXSDK_printf("Animation Stack Information\n");
+
+		lAnimStackCount = lImporter->GetAnimStackCount();
+
+		FBXSDK_printf("    Number of Animation Stacks: %d\n", lAnimStackCount);
+		FBXSDK_printf("    Current Animation Stack: \"%s\"\n", lImporter->GetActiveAnimStackName().Buffer());
+		FBXSDK_printf("\n");
+
+		for (i = 0; i < lAnimStackCount; i++)
+		{
+			FbxTakeInfo* lTakeInfo = lImporter->GetTakeInfo(i);
+
+			FBXSDK_printf("    Animation Stack %d\n", i);
+			FBXSDK_printf("         Name: \"%s\"\n", lTakeInfo->mName.Buffer());
+			FBXSDK_printf("         Description: \"%s\"\n", lTakeInfo->mDescription.Buffer());
+
+			// Change the value of the import name if the animation stack should be imported 
+			// under a different name.
+			FBXSDK_printf("         Import Name: \"%s\"\n", lTakeInfo->mImportName.Buffer());
+
+			// Set the value of the import state to false if the animation stack should be not
+			// be imported. 
+			FBXSDK_printf("         Import State: %s\n", lTakeInfo->mSelect ? "true" : "false");
+			FBXSDK_printf("\n");
+		}
+
+		// Set the import states. By default, the import states are always set to 
+		// true. The code below shows how to change these states.
+		IOS_REF.SetBoolProp(IMP_FBX_MATERIAL, true);
+		IOS_REF.SetBoolProp(IMP_FBX_TEXTURE, true);
+		IOS_REF.SetBoolProp(IMP_FBX_LINK, true);
+		IOS_REF.SetBoolProp(IMP_FBX_SHAPE, true);
+		IOS_REF.SetBoolProp(IMP_FBX_GOBO, true);
+		IOS_REF.SetBoolProp(IMP_FBX_ANIMATION, true);
+		IOS_REF.SetBoolProp(IMP_FBX_GLOBAL_SETTINGS, true);
+	}
+
+	// Import the scene.
+	lStatus = lImporter->Import(pScene);
+
+	//If working with passwords enable
+#ifdef false
+	char lPassword[1024];
+	if (lStatus == false && lImporter->GetStatus().GetCode() == FbxStatus::ePasswordError)
+	{
+		FBXSDK_printf("Please enter password: ");
+
+		lPassword[0] = '\0';
+
+		FBXSDK_CRT_SECURE_NO_WARNING_BEGIN
+			scanf("%s", lPassword);
+		FBXSDK_CRT_SECURE_NO_WARNING_END
+
+			FbxString lString(lPassword);
+
+		IOS_REF.SetStringProp(IMP_FBX_PASSWORD, lString);
+		IOS_REF.SetBoolProp(IMP_FBX_PASSWORD_ENABLE, true);
+
+		lStatus = lImporter->Import(pScene);
+
+		if (lStatus == false && lImporter->GetStatus().GetCode() == FbxStatus::ePasswordError)
+		{
+			FBXSDK_printf("\nPassword is wrong, import aborted.\n");
+		}
+	}
+#endif // 0
+
+	// Destroy the importer.
+	lImporter->Destroy();
+
+	GetMyShitRecursive(pScene->GetRootNode(), mesh, boner);
+	DestroySdkObjects(pManager, true);
+	return;
+}
